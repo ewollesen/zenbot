@@ -19,6 +19,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	redis "gopkg.in/redis.v5"
 
@@ -31,6 +32,8 @@ import (
 	"github.com/ewollesen/zenbot/cache/rediscache"
 	"github.com/ewollesen/zenbot/commands"
 	"github.com/ewollesen/zenbot/httpapi"
+	"github.com/ewollesen/zenbot/overwatch"
+	"github.com/ewollesen/zenbot/overwatch/lootbox"
 	"github.com/ewollesen/zenbot/queue"
 	memoryqueue "github.com/ewollesen/zenbot/queue/memory"
 	"github.com/ewollesen/zenbot/queue/redisqueue"
@@ -70,15 +73,17 @@ func New(redis_client *redis.Client) *bot {
 	b.RegisterCommand("ping", &discordHandler{commands.Pong})
 
 	var q queue.Queue
-	var c cache.Cache
+	var c, owc cache.Cache
 	if redis_client != nil {
 		logger.Infof("using redis queue and cache")
 		q = redisqueue.New(redis_client, *redisKeySpace+".queues.scrimmages")
-		c = rediscache.New(redis_client, *redisKeySpace+".caches.battletags")
+		c = rediscache.New(redis_client, *redisKeySpace+".caches.battletags", 0)
+		owc = rediscache.New(redis_client, *redisKeySpace+".caches.overwatch", time.Hour*2)
 	} else {
 		logger.Infof("using memory queue and cache")
 		q = memoryqueue.New()
 		c = memorycache.New()
+		owc = memorycache.New()
 	}
 
 	b.session_cache = memorycache.New()
@@ -92,6 +97,10 @@ func New(redis_client *redis.Client) *bot {
 
 	dh := newDebugHandler(btq, btc)
 	b.RegisterCommand("debug", dh)
+
+	cow := overwatch.NewCaching(lootbox.New(), owc)
+	srh := newSkillRankHandler(cow)
+	b.RegisterCommand("sr", srh)
 
 	return b
 }

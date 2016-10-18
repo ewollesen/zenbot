@@ -17,6 +17,7 @@ package rediscache
 import (
 	"fmt"
 	"regexp"
+	"time"
 
 	"github.com/ewollesen/zenbot/cache"
 	"github.com/spacemonkeygo/spacelog"
@@ -30,14 +31,16 @@ var (
 type rediscache struct {
 	client *redis.Client
 	key    string
+	ttl    time.Duration
 }
 
 var _ cache.Cache = (*rediscache)(nil)
 
-func New(client *redis.Client, key string) *rediscache {
+func New(client *redis.Client, key string, ttl time.Duration) *rediscache {
 	return &rediscache{
 		client: client,
 		key:    key,
+		ttl:    ttl,
 	}
 }
 
@@ -124,7 +127,7 @@ func (c *rediscache) get(built_key string) (value []byte, err error) {
 }
 
 func (c *rediscache) Set(key string, value []byte) error {
-	return c.client.Set(c.buildKey(key), value, 0).Err()
+	return c.client.Set(c.buildKey(key), value, c.ttl).Err()
 }
 
 func (c *rediscache) buildKey(key string) string {

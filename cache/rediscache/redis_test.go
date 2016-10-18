@@ -29,7 +29,7 @@ var keyPrefix = "test.zenbot.cache"
 
 func TestFetch(t *testing.T) {
 	test := zentest.New(t)
-	rc := New(redisTestClient(t), keyPrefix)
+	rc := New(redisTestClient(t), keyPrefix, 0)
 
 	value, err := rc.Fetch("foo", func() []byte {
 		return []byte("bar")
@@ -46,7 +46,7 @@ func TestFetch(t *testing.T) {
 
 func TestGet(t *testing.T) {
 	test := zentest.New(t)
-	rc := New(redisTestClient(t), keyPrefix)
+	rc := New(redisTestClient(t), keyPrefix, 0)
 
 	value, err := rc.Get("foo")
 	test.AssertNil(err)
@@ -60,7 +60,7 @@ func TestGet(t *testing.T) {
 
 func TestSet(t *testing.T) {
 	test := zentest.New(t)
-	rc := New(redisTestClient(t), keyPrefix)
+	rc := New(redisTestClient(t), keyPrefix, 0)
 
 	test.AssertNil(rc.Set("foo", []byte("bar")))
 	value, err := rc.Get("foo")

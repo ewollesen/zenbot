@@ -21,7 +21,7 @@ import (
 	"sync"
 	"syscall"
 
-	redis "gopkg.in/redis.v4"
+	redis "gopkg.in/redis.v5"
 
 	"github.com/ewollesen/zenbot/discord"
 	"github.com/ewollesen/zenbot/httpapi"

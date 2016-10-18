@@ -95,6 +95,7 @@ func CommonTestEnqueue(t *testing.T, queue_under_test Queue) {
 
 	pos, err = qut.Enqueue(newQueueable("foo2", "bar2"))
 	test.AssertNil(err)
+	test.AssertEqual(pos, 1)
 	test.AssertQueueSize(qut, 2)
 
 	pos, err = qut.Enqueue(newQueueable("foo2", "bar2"))

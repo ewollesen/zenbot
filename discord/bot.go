@@ -20,7 +20,7 @@ import (
 	"strings"
 	"sync"
 
-	redis "gopkg.in/redis.v4"
+	redis "gopkg.in/redis.v5"
 
 	"github.com/ewollesen/discordgo"
 	"github.com/spacemonkeygo/errors"

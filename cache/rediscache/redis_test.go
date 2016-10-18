@@ -20,7 +20,7 @@ import (
 	"regexp"
 	"testing"
 
-	redis "gopkg.in/redis.v4"
+	redis "gopkg.in/redis.v5"
 
 	"github.com/ewollesen/zenbot/zentest"
 )

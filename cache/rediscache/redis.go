@@ -20,7 +20,7 @@ import (
 
 	"github.com/ewollesen/zenbot/cache"
 	"github.com/spacemonkeygo/spacelog"
-	redis "gopkg.in/redis.v4"
+	redis "gopkg.in/redis.v5"
 )
 
 var (

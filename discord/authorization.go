@@ -28,5 +28,6 @@ func isPermitted(s Session, m *discordgo.MessageCreate, perm int) (
 	if err != nil {
 		return false, err
 	}
+
 	return perms&perm > 0, nil
 }

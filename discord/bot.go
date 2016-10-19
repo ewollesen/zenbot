@@ -117,7 +117,14 @@ func (b *bot) Run(quit chan os.Signal) error {
 		logger.Warne(session.UpdateStatus(0, *game))
 	}
 
-	<-quit
+	signal, closed := <-quit
+	if closed {
+		logger.Debugf("quit channel closed, shutting down")
+	}
+	if signal != nil {
+		logger.Debugf("quit channel received signal %v, shutting down", signal)
+	}
+
 	logger.Info("shutting down")
 	b.logOut(session)
 

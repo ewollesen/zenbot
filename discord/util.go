@@ -26,6 +26,19 @@ func reply(s Session, m *discordgo.MessageCreate,
 	return s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(template, args...))
 }
 
+// TODO: make me a real private message
+func replyPrivate(s Session, m *discordgo.MessageCreate,
+	template string, args ...interface{}) error {
+
+	dm_channel, err := s.UserChannelCreate(m.Author.ID)
+	if err != nil {
+		logger.Errore(err)
+		return nil
+	}
+
+	return s.ChannelMessageSend(dm_channel.ID, fmt.Sprintf(template, args...))
+}
+
 func authorNick(s Session, m *discordgo.MessageCreate) string {
 	channel, err := s.Channel(m.ChannelID)
 	if err != nil {

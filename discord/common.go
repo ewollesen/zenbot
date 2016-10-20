@@ -28,6 +28,7 @@ type Session interface {
 	ChannelMessageSend(channel_id, message string) error
 	Member(guild_id, user_id string) (*discordgo.Member, error)
 	User(user_id string) (*discordgo.User, error)
+	UserChannelCreate(user_id string) (*discordgo.Channel, error)
 	UserChannelPermissions(user_id, channel_id string) (int, error)
 }
 

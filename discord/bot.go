@@ -78,7 +78,7 @@ func New(redis_client *redis.Client) *bot {
 		logger.Infof("using redis queue and cache")
 		q = redisqueue.New(redis_client, *redisKeySpace+".queues.scrimmages")
 		c = rediscache.New(redis_client, *redisKeySpace+".caches.battletags", 0)
-		owc = rediscache.New(redis_client, *redisKeySpace+".caches.overwatch", time.Hour*2)
+		owc = rediscache.New(redis_client, *redisKeySpace+".caches.overwatch", time.Hour*12)
 	} else {
 		logger.Infof("using memory queue and cache")
 		q = memoryqueue.New()
@@ -90,7 +90,8 @@ func New(redis_client *redis.Client) *bot {
 
 	btq := newBattleTagQueue(q)
 	btc := NewBattleTagCache(c)
-	qh := newQueueHandler(btq, btc)
+	cow := overwatch.NewCaching(lootbox.New(), owc)
+	qh := newQueueHandler(btq, btc, cow)
 	b.RegisterCommand("dequeue", qh)
 	b.RegisterCommand("enqueue", qh)
 	b.RegisterCommand("queue", qh)
@@ -98,9 +99,9 @@ func New(redis_client *redis.Client) *bot {
 	dh := newDebugHandler(btq, btc)
 	b.RegisterCommand("debug", dh)
 
-	cow := overwatch.NewCaching(lootbox.New(), owc)
 	srh := newSkillRankHandler(cow)
 	b.RegisterCommand("sr", srh)
+	b.RegisterCommand("teams", srh)
 
 	return b
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/ewollesen/discordgo"
 
 	memorycache "github.com/ewollesen/zenbot/cache/memory"
+	"github.com/ewollesen/zenbot/overwatch/mockoverwatch"
 	memoryqueue "github.com/ewollesen/zenbot/queue/memory"
 	"github.com/ewollesen/zenbot/ratelimiter/mocklimiter"
 )
@@ -30,7 +31,7 @@ func TestHandleClear(t *testing.T) {
 
 	c := memorycache.New()
 	qh := newQueueHandler(newBattleTagQueue(memoryqueue.New()),
-		NewBattleTagCache(c))
+		NewBattleTagCache(c), mockoverwatch.NewRandom())
 	s := test.mockSession()
 	m := test.testMessage("!queue clear")
 	test.AssertNil(qh.Handle(s, m, "!queue", "clear"))
@@ -71,7 +72,7 @@ func TestClearEnqueueRateLimits(t *testing.T) {
 func TestEnqueueRateLimited(t *testing.T) {
 	test := newDiscordTest(t)
 	qh := newQueueHandler(newBattleTagQueue(memoryqueue.New()),
-		NewBattleTagCache(memorycache.New()))
+		NewBattleTagCache(memorycache.New()), mockoverwatch.NewRandom())
 	s := test.mockSession()
 	m := test.testMessage("!enqueue example#1234")
 
@@ -161,6 +162,31 @@ func TestHandleEnqueueUnlimited(t *testing.T) {
 			"in position 1.")
 }
 
+func TestHandleAddUnsafe(t *testing.T) {
+	test, qh := newQueueTest(t)
+	s := test.mockSession()
+	m := test.testMessage("!queue add")
+
+	err := qh.handleAddUnsafe(s, m)
+	test.AssertNil(err)
+	test.AssertContains(s.sends,
+		"No BattleTag specified. Try `!queue add example#1234`.")
+
+	s.clearSends()
+	m = test.testMessage("!queue add example#1234")
+
+	err = qh.handleAddUnsafe(s, m)
+	test.AssertNil(err)
+	test.AssertContains(s.sends,
+		"Enqueued \"example#1234\" in the scrimmages queue "+
+			"in position 1.")
+
+	s.clearSends()
+	err = qh.handleAddUnsafe(s, m)
+	test.AssertNil(err)
+	test.AssertContainsRe(s.sends, "BattleTag.*already enqueued.*position 1.")
+}
+
 func TestHandleKickUnsafe(t *testing.T) {
 	test, qh := newQueueTest(t)
 	s := test.mockSession()
@@ -171,7 +197,7 @@ func TestHandleKickUnsafe(t *testing.T) {
 	m := test.testMessage("!queue kick")
 	test.AssertNil(qh.handleKickUnsafe(s, m))
 	test.AssertContains(s.sends,
-		"No BattleTag specified. Try `!queue remove example#1234`.")
+		"No BattleTag specified. Try `!queue kick example#1234`.")
 
 	s.clearSends()
 	m = test.testMessage("!queue kick example#1234")
@@ -296,7 +322,7 @@ type queueTest struct {
 
 func newQueueTest(t *testing.T) (*queueTest, *queueHandler) {
 	qh := newQueueHandler(newBattleTagQueue(memoryqueue.New()),
-		NewBattleTagCache(memorycache.New()))
+		NewBattleTagCache(memorycache.New()), mockoverwatch.NewRandom())
 
 	return &queueTest{
 		discordTest: newDiscordTest(t),

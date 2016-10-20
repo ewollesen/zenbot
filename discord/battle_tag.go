@@ -83,14 +83,11 @@ func findBattleTag(cache *BattleTagCache, s Session,
 }
 
 func parseBattleTag(text string) string {
-	words := strings.Split(text, " ")
-	for _, word := range words {
-		if validBattleTag(word) {
-			return word
-		}
+	btags := parseAllBattleTags(text)
+	if len(btags) == 0 {
+		return ""
 	}
-
-	return ""
+	return btags[0]
 }
 
 func validBattleTag(btag string) bool {
@@ -164,4 +161,16 @@ func (q *BattleTagQueue) Remove(ubt *userBattleTag) error {
 
 func (q *BattleTagQueue) Size() (int, error) {
 	return q.q.Size()
+}
+
+func parseAllBattleTags(text string) []string {
+	words := strings.Split(strings.Replace(text, ",", "", -1), " ")
+	btags := []string{}
+	for _, word := range words {
+		if validBattleTag(strings.TrimSpace(word)) {
+			btags = append(btags, word)
+		}
+	}
+
+	return btags
 }

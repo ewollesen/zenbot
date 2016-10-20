@@ -15,6 +15,7 @@
 package discord
 
 import (
+	"math/rand"
 	"testing"
 
 	"github.com/ewollesen/discordgo"
@@ -26,11 +27,12 @@ var (
 	testAuthor = &discordgo.User{
 		ID: testUserId,
 	}
-	testBattleTag = "example#1234"
-	testChannelId = "test-channel-123"
-	testGuildId   = "test-guild-123"
-	testNick      = "example#1234 [tank]"
-	testUserId    = "test-user-123"
+	testBattleTag        = "example#1234"
+	testChannelId        = "test-channel-123"
+	testGuildId          = "test-guild-123"
+	testNick             = "example#1234 [tank]"
+	testPrivateChannelId = "test-private-channel-123"
+	testUserId           = "test-user-123"
 )
 
 type discordTest struct {
@@ -38,6 +40,8 @@ type discordTest struct {
 }
 
 func newDiscordTest(t *testing.T) *discordTest {
+	rand.Seed(13)
+
 	return &discordTest{
 		ZenTest: zentest.New(t),
 	}
@@ -72,6 +76,15 @@ func (s *mockSession) Member(guild_id, user_id string) (
 
 func (s *mockSession) User(user_id string) (*discordgo.User, error) {
 	return nil, nil
+}
+
+func (s *mockSession) UserChannelCreate(user_id string) (
+	*discordgo.Channel, error) {
+
+	return &discordgo.Channel{
+		ID:        testPrivateChannelId,
+		IsPrivate: true,
+	}, nil
 }
 
 func (s *mockSession) UserChannelPermissions(user_id, channel_id string) (

@@ -20,6 +20,8 @@ type session struct {
 	*discordgo.Session
 }
 
+var _ Session = (*session)(nil)
+
 func (s *session) Channel(channel_id string) (*discordgo.Channel, error) {
 	return s.Session.Channel(channel_id)
 }

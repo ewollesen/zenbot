@@ -16,10 +16,12 @@ package discord
 
 import (
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/ewollesen/discordgo"
 	"github.com/ewollesen/zenbot/overwatch"
+	"github.com/ewollesen/zenbot/partition"
 )
 
 var (
@@ -41,6 +43,8 @@ var (
 		"`!sr example#1234` - looks up the skill rank for example#1234 (PC, US-only for now)",
 		"`!sr help` - displays this help message",
 	}, "\n"))
+
+	TooManyLookupFailures = Error.NewClass("too many skill rank lookup failures")
 )
 
 type skillRankHandler struct {
@@ -67,15 +71,21 @@ func imageUrlToName(img_url string) string {
 func (sr *skillRankHandler) Handle(s Session, m *discordgo.MessageCreate,
 	argv ...string) (err error) {
 
-	sub_cmd := "help"
-	if len(argv) > 1 {
-		sub_cmd = argv[1]
-	}
-	switch sub_cmd {
-	case "help":
-		err = reply(s, m, skillRankHelpMsg)
-	default:
-		err = sr.handleSkillRank(s, m, sub_cmd)
+	cmd := argv[0]
+	switch cmd {
+	case "sr":
+		sub_cmd := "help"
+		if len(argv) > 1 {
+			sub_cmd = argv[1]
+		}
+		switch sub_cmd {
+		case "help":
+			err = reply(s, m, skillRankHelpMsg)
+		default:
+			err = sr.handleSkillRank(s, m, sub_cmd)
+		}
+	case "teams":
+		err = sr.handleTeams(s, m)
 	}
 
 	return err
@@ -97,9 +107,173 @@ func (sr *skillRankHandler) handleSkillRank(s Session,
 	rank, img_url, err := sr.overwatch.SkillRank("pc", "us", btag)
 	if err != nil {
 		logger.Errore(err)
-		return reply(s, m, "Error looking up skill rank for %q",
-			btag)
+		return reply(s, m, "Error looking up skill rank for %q "+
+			"(remember, BattleTags are CaSe-SeNsItIvE!)", btag)
 	}
 	return reply(s, m, "Skill rank for %q: %d (%s).", btag, rank,
 		imageUrlToName(img_url))
+}
+
+func (sr *skillRankHandler) handleTeams(s Session,
+	m *discordgo.MessageCreate) (err error) {
+
+	btags := []string{}
+	for _, btag := range parseAllBattleTags(m.Content) {
+		if btag == "" {
+			continue
+		}
+		// Don't lookup the skill rank here, let the partitioner do it,
+		// so they're not racing.
+		btags = append(btags, btag)
+	}
+
+	return sr.replyPartition(s, m, btags)
+}
+
+// TODO: DRY up with queueHandler's version
+func (sr *skillRankHandler) replyPartition(s Session,
+	m *discordgo.MessageCreate, btags []string) error {
+
+	return replyPartition(s, m, sr.overwatch, btags)
+}
+
+func averageRank(ranks []int) int {
+	sum := 0
+	for _, rank := range ranks {
+		sum += rank
+	}
+	return sum / len(ranks)
+}
+
+type rankBtagPair struct {
+	Rank      int
+	BattleTag string
+}
+
+// TODO: DRY up with the queueHandler's version
+func partitionBattleTags(ow overwatch.OverwatchAPI, btags []string) (
+	team_one, team_two []*rankBtagPair, err error) {
+
+	ranks := make(map[int][]string)
+	all_ranks := []int{}
+	failures := 0
+	no_ranks := []string{}
+
+	// Optimization: parallelize
+	for _, btag := range btags {
+		rank, _, err := ow.SkillRank("pc", "us", btag)
+		if err != nil {
+			logger.Errore(err)
+			failures++
+			if failures >= len(btags)/4 {
+				return nil, nil, TooManyLookupFailures.Wrap(err)
+			}
+			no_ranks = append(no_ranks, btag)
+			continue
+		}
+
+		all_ranks = append(all_ranks, rank)
+
+		_, ok := ranks[rank]
+		if ok {
+			ranks[rank] = append(ranks[rank], btag)
+		} else {
+			ranks[rank] = []string{btag}
+		}
+	}
+
+	if len(no_ranks) > 0 {
+		// Loop through the BattleTags for which we couldn't look up a
+		// skill rank, and give them the average of the other players.
+		average_rank := averageRank(all_ranks)
+		for _, btag := range no_ranks {
+			logger.Debugf("assigning average rank (%d) for btag %q",
+				average_rank, btag)
+			all_ranks = append(all_ranks, average_rank)
+			_, ok := ranks[average_rank]
+			if ok {
+				ranks[average_rank] =
+					append(ranks[average_rank], btag)
+			} else {
+				ranks[average_rank] = []string{btag}
+			}
+		}
+	}
+
+	if len(all_ranks) != len(btags) {
+		logger.Warnf("something is weird, I don't have a rank for "+
+			"each battle tag (%d vs %d)", len(all_ranks), len(btags))
+	}
+
+	logger.Debugf("all_ranks: %v", all_ranks)
+
+	team_one_ranks, team_two_ranks := partition.Partition(all_ranks)
+	for _, team_one_rank := range team_one_ranks {
+		btags, ok := ranks[team_one_rank]
+		if !ok || len(btags) == 0 {
+			return nil, nil, BTagNotFound.New("%d", team_one_rank)
+		}
+		team_one = append(team_one, &rankBtagPair{
+			BattleTag: btags[0],
+			Rank:      team_one_rank,
+		})
+		ranks[team_one_rank] = btags[1:]
+	}
+	for _, team_two_rank := range team_two_ranks {
+		btags, ok := ranks[team_two_rank]
+		if !ok || len(btags) == 0 {
+			return nil, nil, BTagNotFound.New("%d", team_two_rank)
+		}
+		team_two = append(team_two, &rankBtagPair{
+			BattleTag: btags[0],
+			Rank:      team_two_rank,
+		})
+		ranks[team_two_rank] = btags[1:]
+	}
+
+	return team_one, team_two, nil
+}
+
+func replyPartition(s Session, m *discordgo.MessageCreate,
+	ow overwatch.OverwatchAPI, btags []string) error {
+
+	team_one, team_two, err := partitionBattleTags(ow, btags)
+	if err != nil {
+		logger.Errore(err)
+		if TooManyLookupFailures.Contains(err) {
+			return replyPrivate(s, m, "I failed to look up Skill "+
+				"Ranks for >= 25%% of the BattleTags listed, "+
+				"so I'm giving up. Look up failures are often "+
+				"caused by case-sensitivity errors in "+
+				"BattleTags.")
+		}
+		return replyPrivate(s, m, "Error partitioning into teams.")
+	}
+
+	team_one_avg := 0.0
+	team_one_btags := []string{}
+	for _, pair := range team_one {
+		team_one_avg += float64(pair.Rank)
+		team_one_btags = append(team_one_btags, pair.BattleTag)
+	}
+	team_one_avg /= float64(len(team_one))
+
+	team_two_avg := 0.0
+	team_two_btags := []string{}
+	for _, pair := range team_two {
+		team_two_avg += float64(pair.Rank)
+		team_two_btags = append(team_two_btags, pair.BattleTag)
+	}
+	team_two_avg /= float64(len(team_two))
+
+	sort.Strings(team_one_btags)
+	sort.Strings(team_two_btags)
+
+	// Don't join with commas, they'll only cause copy pasta errors
+	return replyPrivate(s, m,
+		`I suggest the following teams based on skill rank:
+Team 1 (avg. %0.1f): %s
+Team 2 (avg. %0.1f): %s`,
+		team_one_avg, strings.Join(team_one_btags, "  "),
+		team_two_avg, strings.Join(team_two_btags, "  "))
 }

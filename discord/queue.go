@@ -37,7 +37,7 @@ var (
 		"`!enqueue example#1234` - adds your BattleTag to the scrimmages queue",
 		"`!queue add example#1234` - adds a BattleTag to the scrimmages queue (admin-only)",
 		"`!queue clear` - clears the scrimmages queue (admin-only)",
-		"`!queue kick example#1234` - removes a BattleTag from the scrimmages queue (admni-only)",
+		"`!queue kick example#1234` - removes a BattleTag from the scrimmages queue (admin-only)",
 		"`!queue list` - lists the BattleTags in the scrimmages queue.",
 		"`!queue teams` - splits the BattleTags into two teams by Skill Rank.",
 		"`!queue take <n>` - takes the first <n> BattleTags from the scrimmages queue (default: 12, admin-only)",

@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/ewollesen/zenbot/cache"
+	"github.com/ewollesen/zenbot/overwatch"
 	"github.com/ewollesen/zenbot/queue"
 
 	"github.com/ewollesen/discordgo"
@@ -61,25 +62,39 @@ func (c *BattleTagCache) Set(key string, value string) error {
 	return c.c.Set(key, []byte(value))
 }
 
-func findBattleTag(cache *BattleTagCache, s Session,
-	m *discordgo.MessageCreate) string {
+func findBattleTag(ow overwatch.OfficialAPI, cache *BattleTagCache, s Session,
+	m *discordgo.MessageCreate) (string, error) {
 
 	from_content := parseBattleTag(m.Content)
 	if from_content != "" {
-		return from_content
+		confirmed, err := ow.IsValidBattleTag("pc", "us", from_content)
+		if err != nil {
+			return "", err
+		}
+		if !confirmed {
+			return "", overwatch.BattleTagInvalid.New(from_content)
+		}
+		return from_content, nil
 	}
 
 	from_cache, err := cache.Get(userKey(s, m))
 	if err == nil && from_cache != "" {
-		return from_cache
+		return from_cache, nil
 	}
 
 	from_nick := parseBattleTag(authorNick(s, m))
 	if from_nick != "" {
-		return from_nick
+		confirmed, err := ow.IsValidBattleTag("pc", "us", from_nick)
+		if err != nil {
+			return "", err
+		}
+		if !confirmed {
+			return "", overwatch.BattleTagInvalid.New(from_nick)
+		}
+		return from_nick, nil
 	}
 
-	return ""
+	return "", overwatch.BattleTagNotFound.New("")
 }
 
 func parseBattleTag(text string) string {

@@ -14,15 +14,27 @@
 
 package overwatch
 
-import "github.com/spacemonkeygo/spacelog"
+import (
+	"github.com/spacemonkeygo/errors"
+	"github.com/spacemonkeygo/spacelog"
+)
 
 var (
-	logger = spacelog.GetLogger()
+	logger            = spacelog.GetLogger()
+	Error             = errors.NewClass("overwatch")
+	BattleTagInvalid  = Error.NewClass("BattleTag invalid")
+	BattleTagNotFound = Error.NewClass("no BattleTag found")
 )
+
+type OfficialAPI interface {
+	IsValidBattleTag(platform, region, battle_tag string) (
+		bool, error)
+}
 
 type OverwatchAPI interface {
 	SkillRank(platform, region, battle_tag string) (
 		sr int, img_url string, err error)
+	OfficialAPI
 }
 
 func CheckPlatform(platform string) {

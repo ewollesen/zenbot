@@ -32,10 +32,12 @@ var (
 	logger = spacelog.GetLogger()
 )
 
-type lootBox struct{}
+type lootBox struct {
+	official overwatch.OfficialAPI
+}
 
-func New() *lootBox {
-	return &lootBox{}
+func New(official overwatch.OfficialAPI) *lootBox {
+	return &lootBox{official: official}
 }
 
 type profile struct {
@@ -121,4 +123,10 @@ func (l *lootBox) buildUrl(platform, region, battle_tag, path string) string {
 
 	return fmt.Sprintf("https://api.lootbox.eu/%s/%s/%s/%s",
 		platform, region, l.escapeBattleTag(battle_tag), path)
+}
+
+func (l *lootBox) IsValidBattleTag(platform, region, battle_tag string) (
+	bool, error) {
+
+	return l.official.IsValidBattleTag(platform, region, battle_tag)
 }

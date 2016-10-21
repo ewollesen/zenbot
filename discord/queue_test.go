@@ -117,7 +117,7 @@ func TestHandleDequeue(t *testing.T) {
 	})
 
 	test.AssertNil(qh.handleDequeue(s, m))
-	test.AssertContains(s.sends,
+	test.AssertContainsRe(s.sends,
 		"No BattleTag specified. Try `!dequeue example#1234`.")
 
 	s.setMember(testGuildId, testUserId, &discordgo.Member{
@@ -150,7 +150,7 @@ func TestHandleEnqueueUnlimited(t *testing.T) {
 	success, err := qh.handleEnqueueUnlimited(s, m)
 	test.AssertNil(err)
 	test.Assert(!success)
-	test.AssertContains(s.sends,
+	test.AssertContainsRe(s.sends,
 		"No BattleTag specified. Try `!enqueue example#1234`.")
 
 	m = test.testMessage("!enqueue example#1234")

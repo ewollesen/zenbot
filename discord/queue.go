@@ -122,10 +122,19 @@ func (h *queueHandler) handleDequeue(s Session,
 	m *discordgo.MessageCreate) (err error) {
 
 	// TODO: don't allow passing someone else's battle tag on the command line
-	btag := findBattleTag(h.btags, s, m)
-	if btag == "" {
-		return reply(s, m, "No BattleTag specified. "+
-			"Try `!dequeue example#1234`.")
+	btag, err := findBattleTag(h.overwatch, h.btags, s, m)
+	if err != nil {
+		if overwatch.BattleTagNotFound.Contains(err) {
+			return reply(s, m, "No BattleTag specified. "+
+				"Try `!dequeue example#1234`. "+
+				"Remember, BattleTags are CaSe-SeNsItIvE!")
+		}
+		if overwatch.BattleTagInvalid.Contains(err) {
+			return reply(s, m, "Invalid BattleTag. "+
+				"Try `!dequeue example#1234`.")
+		}
+		logger.Errore(err)
+		return reply(s, m, "Error parsing BattleTag.")
 	}
 
 	err = h.q.Remove(h.wrapBattleTag(s, m, string(btag)))
@@ -143,11 +152,22 @@ func (h *queueHandler) handleDequeue(s Session,
 func (h *queueHandler) handleEnqueueUnlimited(s Session,
 	m *discordgo.MessageCreate) (success bool, err error) {
 
-	btag := h.lookupSkillRank(findBattleTag(h.btags, s, m))
-	if btag == "" {
-		return false, reply(s, m, "No BattleTag specified. "+
-			"Try `!enqueue example#1234`.")
+	btag, err := h.lookupSkillRankWrapper(findBattleTag(h.overwatch, h.btags, s, m))
+	if err != nil {
+		if overwatch.BattleTagNotFound.Contains(err) {
+			return false, reply(s, m, "No BattleTag specified. "+
+				"Try `!enqueue example#1234`. "+
+				"Remember, BattleTags are CaSe-SeNsItIvE!")
+		}
+		if overwatch.BattleTagInvalid.Contains(err) {
+			return false, reply(s, m, "Invalid BattleTag. "+
+				"Try `!enqueue example#1234`. "+
+				"Remember, BattleTags are CaSe-SeNsItIvE!")
+		}
+		logger.Errore(err)
+		return false, reply(s, m, "Error parsing BattleTag.")
 	}
+
 	logger.Warne(h.btags.Set(userKey(s, m), btag))
 
 	pos, err := h.q.Enqueue(h.wrapBattleTag(s, m, string(btag)))
@@ -189,6 +209,7 @@ func (h *queueHandler) handleAddUnsafe(s Session,
 		if btag == "" {
 			continue
 		}
+
 		btags = append(btags, h.lookupSkillRank(btag))
 	}
 
@@ -416,5 +437,16 @@ func (h *queueHandler) lookupSkillRank(btag string) string {
 			return
 		}
 	}()
+
 	return btag
+}
+
+func (h *queueHandler) lookupSkillRankWrapper(btag string, err error) (
+	string, error) {
+
+	if err != nil {
+		return btag, err
+	}
+
+	return h.lookupSkillRank(btag), nil
 }

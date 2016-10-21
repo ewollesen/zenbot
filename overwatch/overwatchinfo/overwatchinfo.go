@@ -33,12 +33,14 @@ var (
 )
 
 type overwatchInfo struct {
-	client *http.Client
+	client   *http.Client
+	official overwatch.OfficialAPI
 }
 
-func New() *overwatchInfo {
+func New(official overwatch.OfficialAPI) *overwatchInfo {
 	return &overwatchInfo{
-		client: &http.Client{},
+		client:   &http.Client{},
+		official: official,
 	}
 }
 
@@ -108,4 +110,10 @@ func (l *overwatchInfo) buildUrl(platform, region, battle_tag, path string) stri
 
 	return fmt.Sprintf("https://api.overwatchinfo.com/%s/%s/%s/%s",
 		platform, region, l.escapeBattleTag(battle_tag), path)
+}
+
+func (l *overwatchInfo) IsValidBattleTag(platform, region, battle_tag string) (
+	bool, error) {
+
+	return l.official.IsValidBattleTag(platform, region, battle_tag)
 }

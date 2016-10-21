@@ -33,6 +33,7 @@ import (
 	"github.com/ewollesen/zenbot/commands"
 	"github.com/ewollesen/zenbot/httpapi"
 	"github.com/ewollesen/zenbot/overwatch"
+	"github.com/ewollesen/zenbot/overwatch/blizzard"
 	"github.com/ewollesen/zenbot/overwatch/lootbox"
 	"github.com/ewollesen/zenbot/queue"
 	memoryqueue "github.com/ewollesen/zenbot/queue/memory"
@@ -90,7 +91,7 @@ func New(redis_client *redis.Client) *bot {
 
 	btq := newBattleTagQueue(q)
 	btc := NewBattleTagCache(c)
-	cow := overwatch.NewCaching(lootbox.New(), owc)
+	cow := overwatch.NewCaching(lootbox.New(blizzard.New()), owc)
 	qh := newQueueHandler(btq, btc, cow)
 	b.RegisterCommand("dequeue", qh)
 	b.RegisterCommand("enqueue", qh)

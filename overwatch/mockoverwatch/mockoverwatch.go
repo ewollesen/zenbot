@@ -88,6 +88,12 @@ func (ow *mockOverwatch) SkillRank(platform, region, btag string) (
 	}
 }
 
+func (ow *mockOverwatch) IsValidBattleTag(platform, region, btag string) (
+	bool, error) {
+
+	return true, nil
+}
+
 func New() *mockOverwatch {
 	return &mockOverwatch{}
 }
@@ -109,6 +115,12 @@ func (ow *mockRandomOverwatch) SkillRank(platform, region, btag string) (
 		ow.ranks[btag] = rank
 	}
 	return rank, "", nil
+}
+
+func (ow *mockRandomOverwatch) IsValidBattleTag(platform, region, btag string) (
+	bool, error) {
+
+	return true, nil
 }
 
 func NewRandom() *mockRandomOverwatch {

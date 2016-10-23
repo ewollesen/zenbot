@@ -24,8 +24,9 @@ var (
 	errorPosKey = errors.GenSym()
 
 	Error           = errors.NewClass("queue")
-	NotFound        = Error.NewClass("not found")
-	AlreadyEnqueued = Error.NewClass("already enqueued")
+	NotFound        = Error.NewClass("not found", errors.NoCaptureStack())
+	AlreadyEnqueued = Error.NewClass("already enqueued",
+		errors.NoCaptureStack())
 )
 
 type Queue interface {

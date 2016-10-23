@@ -261,8 +261,32 @@ func (h *queueHandler) handleEnqueueUnlimited(s Session,
 		return overwatch.BattleTagInvalid.New(btag)
 	}
 
-	logger.Errore(h.cacheBattleTag(s, m, btag))
-	h.lookupSkillRank(btag)
+	btag_in_cache, err := h.lookupBattleTag(s, m)
+	if err != nil {
+		reply(s, m,
+			"Error enqueuing BattleTag %q. Please try again.", btag)
+		return err
+	}
+	if btag_in_cache != btag {
+		// Its possible that the user is already enqueued with a
+		// different BattleTag, so let's check...
+		pos, err := h.q.Position(h.wrapBattleTag(s, m, btag_in_cache))
+		if err != nil {
+			reply(s, m, "Error enqueueing BattleTag %q. "+
+				"Please try again.")
+			return err
+		}
+		if pos != -1 {
+			reply(s, m, "%s is already enqueued in the scrimmages "+
+				"queue with BattleTag %s. Please `!dequeue` "+
+				"before re-enqueueing with a different "+
+				"BattleTag.", nick, btag_in_cache)
+			msg := fmt.Sprintf("%+v in position %d",
+				btag_in_cache, pos+1)
+			return queue.AlreadyEnqueued.NewWith(msg,
+				queue.SetPosition(pos))
+		}
+	} // There's a race condition here, but not worth worrying about.
 
 	pos, err := h.q.Enqueue(h.wrapBattleTag(s, m, btag))
 	if err != nil {
@@ -276,6 +300,9 @@ func (h *queueHandler) handleEnqueueUnlimited(s Session,
 			"queue. Please try again.", btag, nick)
 		return err
 	}
+
+	logger.Errore(h.cacheBattleTag(s, m, btag))
+	h.lookupSkillRank(btag)
 
 	reply(s, m, "Enqueued %s (%s) in the scrimmages queue in position %d.",
 		btag, nick, pos+1)

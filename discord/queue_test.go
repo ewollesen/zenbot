@@ -154,7 +154,7 @@ func TestHandleEnqueueUnlimited(t *testing.T) {
 		"Enqueued .* in the scrimmages queue in position 1.")
 }
 
-func TestHandleEnqueueUnlimitedAlreadyEnqueuedPosition(t *testing.T) {
+func TestHandlesEnqueueUnlimitedAlreadyEnqueuedPosition(t *testing.T) {
 	test, qh := newQueueTest(t)
 	s := test.mockSession()
 	m := test.testMessage("!enqueue example#1234")
@@ -258,14 +258,15 @@ func TestHandleList(t *testing.T) {
 	test.AssertContains(s.sends, "The scrimmages queue is empty.")
 
 	test.enqueue(qh.wrapBattleTag(s, m, string(testBattleTag)))
-	s.clearSends()
 	test.AssertNil(qh.handleList(s, m))
 	test.AssertContains(s.sends, "The scrimmages queue contains "+
 		"1 BattleTags: example#1234")
 
-	m.Author.ID = "test-user-456"
-	test.enqueue(qh.wrapBattleTag(s, m, "example#5678"))
-	s.clearSends()
+	s2 := test.mockSession()
+	m2 := test.testMessage("!enqueue example#5678")
+	m2.Author.ID = "test-user-456"
+	test.enqueue(qh.wrapBattleTag(s2, m2, "example#5678"))
+
 	test.AssertNil(qh.handleList(s, m))
 	test.AssertContains(s.sends, "The scrimmages queue contains "+
 		"2 BattleTags: example#1234  example#5678")
@@ -321,8 +322,7 @@ func TestDoubleEnqueue(t *testing.T) {
 	s := test.mockSession()
 
 	m := test.testMessage("!enqueue example#1234")
-	err := qh.handleEnqueueUnlimited(s, m)
-	test.AssertNil(err)
+	test.AssertNil(qh.handleEnqueueUnlimited(s, m))
 	test.AssertContainsRe(s.sends,
 		"Enqueued .* in the scrimmages queue in position 1.")
 
@@ -332,14 +332,22 @@ func TestDoubleEnqueue(t *testing.T) {
 	test.AssertContainsRe(s.sends,
 		"BattleTag .* is already enqueued .* position 1.")
 
-	test.Logf("Still need to handle the double enqueue issue")
-	test.SkipNow()
 	s.clearSends()
-	m = test.testMessage("!enqueue example#5678")
-	err = qh.handleEnqueueUnlimited(s, m)
-	test.AssertNil(err)
+	m.Content = "!enqueue"
+	test.AssertErrorContainedBy(qh.handleEnqueueUnlimited(s, m),
+		queue.AlreadyEnqueued)
 	test.AssertContainsRe(s.sends,
-		"BattleTag \"example#1234\" is already enqueued .* position 1.")
+		"BattleTag .* is already enqueued .* position 1.")
+
+	// The issue below, is that the user above is enqueued with BattleTag
+	// example#1234, they then enqueue with a different BattleTag, which we
+	// should deny.
+
+	m2 := test.testMessage("!enqueue example#5678")
+	test.AssertErrorContainedBy(qh.handleEnqueueUnlimited(s, m2),
+		queue.AlreadyEnqueued)
+	test.AssertContainsRe(s.sends,
+		`example#1234 \[tank\] is already enqueued .* BattleTag example#1234.`)
 }
 
 //

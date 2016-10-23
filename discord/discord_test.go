@@ -72,8 +72,8 @@ func (s *mockSession) Member(guild_id, user_id string) (
 	if ok {
 		return m, nil
 	}
-	return nil, fmt.Errorf("No member set for guild:user %s:%s",
-		guild_id, user_id)
+	return nil, fmt.Errorf("No member set for guild:user %s:%s %v",
+		guild_id, user_id, s.members)
 }
 
 func (s *mockSession) User(user_id string) (*discordgo.User, error) {
@@ -128,9 +128,10 @@ func (t *discordTest) mockSession() *mockSession {
 }
 
 func (t *discordTest) testMessage(msg string) *discordgo.MessageCreate {
+	author := *testAuthor // make a copy of the author
 	return &discordgo.MessageCreate{
 		Message: &discordgo.Message{
-			Author:    testAuthor,
+			Author:    &author,
 			ChannelID: testChannelId,
 			Content:   msg,
 		},

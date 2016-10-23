@@ -50,3 +50,9 @@ func RandomState(bytes int) (state string, err error) {
 
 	return base64.URLEncoding.EncodeToString(buf), nil
 }
+
+// Two spaces to make selecting easier. No commas or joiners to make cut and
+// paste easier.
+func ToList(words []string) string {
+	return strings.Join(words, "  ")
+}

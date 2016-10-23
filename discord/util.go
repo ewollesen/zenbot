@@ -21,47 +21,27 @@ import (
 )
 
 func reply(s Session, m *discordgo.MessageCreate,
-	template string, args ...interface{}) error {
+	template string, args ...interface{}) {
 
-	return s.ChannelMessageSend(m.ChannelID, fmt.Sprintf(template, args...))
+	msg := fmt.Sprintf(template, args...)
+	logger.Warne(s.ChannelMessageSend(m.ChannelID, msg))
 }
 
-// TODO: make me a real private message
 func replyPrivate(s Session, m *discordgo.MessageCreate,
-	template string, args ...interface{}) error {
+	template string, args ...interface{}) {
 
 	dm_channel, err := s.UserChannelCreate(m.Author.ID)
 	if err != nil {
 		logger.Errore(err)
-		return nil
+		return
 	}
 
-	return s.ChannelMessageSend(dm_channel.ID, fmt.Sprintf(template, args...))
-}
-
-func authorNick(s Session, m *discordgo.MessageCreate) string {
-	channel, err := s.Channel(m.ChannelID)
-	if err != nil {
-		logger.Errore(err)
-		return ""
-	}
-
-	member, err := s.Member(channel.GuildID, m.Author.ID)
-	if err != nil {
-		logger.Errore(err)
-		return ""
-	}
-
-	if member.Nick == "" {
-		logger.Warne(err)
-		return m.Author.Username
-	}
-
-	return member.Nick
+	msg := fmt.Sprintf(template, args...)
+	logger.Warne(s.ChannelMessageSend(dm_channel.ID, msg))
 }
 
 func userKey(s Session, m *discordgo.MessageCreate) string {
-	// We no longer include the guild id here, because pm's don't have a
+	// The guild id is no longer included here, because PMs don't have a
 	// guild id.
 	return m.Author.ID
 }

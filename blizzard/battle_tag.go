@@ -12,16 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ratelimiter
+package blizzard
 
-import "github.com/spacemonkeygo/errors"
+import "regexp"
 
 var (
-	Error   = errors.NewClass("rate limiter")
-	TooSoon = Error.NewClass("too soon", errors.NoCaptureStack())
+	btagRe     = regexp.MustCompile("^\\pL[\\pL\\pN]{2,11}#\\d{1,7}$")
+	btagTextRe = regexp.MustCompile("\\b\\pL[\\pL\\pN]{2,11}#\\d{1,7}\\b")
 )
 
-type RateLimiter interface {
-	Clear() error
-	Limit(id string) (func() error, error)
+func FindBattleTags(text string) (btags []string) {
+	for _, match := range btagTextRe.FindAllStringSubmatch(text, -1) {
+		btags = append(btags, match[0])
+	}
+	return btags
+}
+
+func FirstBattleTag(text string) (btag string) {
+	btags := FindBattleTags(text)
+	if len(btags) == 0 {
+		return ""
+	}
+	return btags[0]
+}
+
+func WellFormedBattleTag(btag string) bool {
+	return btagRe.MatchString(btag)
 }

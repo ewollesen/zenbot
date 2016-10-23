@@ -53,7 +53,9 @@ var (
 	}
 )
 
-type mockOverwatch struct{}
+type mockOverwatch struct {
+	bad_btags []string
+}
 
 func (ow *mockOverwatch) SkillRank(platform, region, btag string) (
 	rank int, img_url string, err error) {
@@ -91,7 +93,17 @@ func (ow *mockOverwatch) SkillRank(platform, region, btag string) (
 func (ow *mockOverwatch) IsValidBattleTag(platform, region, btag string) (
 	bool, error) {
 
+	for _, candidate := range ow.bad_btags {
+		if candidate == btag {
+			return false, nil
+		}
+	}
+
 	return true, nil
+}
+
+func (ow *mockOverwatch) SetInvalidBattleTag(btag string) {
+	ow.bad_btags = append(ow.bad_btags, btag)
 }
 
 func New() *mockOverwatch {
@@ -99,6 +111,7 @@ func New() *mockOverwatch {
 }
 
 type mockRandomOverwatch struct {
+	*mockOverwatch
 	ranks_mu sync.Mutex
 	ranks    map[string]int
 }
@@ -117,14 +130,9 @@ func (ow *mockRandomOverwatch) SkillRank(platform, region, btag string) (
 	return rank, "", nil
 }
 
-func (ow *mockRandomOverwatch) IsValidBattleTag(platform, region, btag string) (
-	bool, error) {
-
-	return true, nil
-}
-
 func NewRandom() *mockRandomOverwatch {
 	return &mockRandomOverwatch{
-		ranks: make(map[string]int),
+		mockOverwatch: New(),
+		ranks:         make(map[string]int),
 	}
 }

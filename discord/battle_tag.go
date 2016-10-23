@@ -17,17 +17,14 @@ package discord
 import (
 	"encoding/json"
 	"regexp"
-	"strings"
 
 	"github.com/ewollesen/zenbot/cache"
-	"github.com/ewollesen/zenbot/overwatch"
 	"github.com/ewollesen/zenbot/queue"
-
-	"github.com/ewollesen/discordgo"
 )
 
 var (
-	btagRe = regexp.MustCompile("^\\pL[\\pL\\pN]{2,11}#\\d{1,7}$")
+	btagRe     = regexp.MustCompile("^\\pL[\\pL\\pN]{2,11}#\\d{1,7}$")
+	btagTextRe = regexp.MustCompile("\\b\\pL[\\pL\\pN]{2,11}#\\d{1,7}\\b")
 )
 
 type BattleTagCache struct {
@@ -60,53 +57,6 @@ func (c *BattleTagCache) Iter(fn func(key string, btag string) bool) {
 
 func (c *BattleTagCache) Set(key string, value string) error {
 	return c.c.Set(key, []byte(value))
-}
-
-func findBattleTag(ow overwatch.OfficialAPI, cache *BattleTagCache, s Session,
-	m *discordgo.MessageCreate) (string, error) {
-
-	from_content := parseBattleTag(m.Content)
-	if from_content != "" {
-		confirmed, err := ow.IsValidBattleTag("pc", "us", from_content)
-		if err != nil {
-			return "", err
-		}
-		if !confirmed {
-			return "", overwatch.BattleTagInvalid.New(from_content)
-		}
-		return from_content, nil
-	}
-
-	from_cache, err := cache.Get(userKey(s, m))
-	if err == nil && from_cache != "" {
-		return from_cache, nil
-	}
-
-	from_nick := parseBattleTag(authorNick(s, m))
-	if from_nick != "" {
-		confirmed, err := ow.IsValidBattleTag("pc", "us", from_nick)
-		if err != nil {
-			return "", err
-		}
-		if !confirmed {
-			return "", overwatch.BattleTagInvalid.New(from_nick)
-		}
-		return from_nick, nil
-	}
-
-	return "", overwatch.BattleTagNotFound.New("")
-}
-
-func parseBattleTag(text string) string {
-	btags := parseAllBattleTags(text)
-	if len(btags) == 0 {
-		return ""
-	}
-	return btags[0]
-}
-
-func validBattleTag(btag string) bool {
-	return btagRe.MatchString(btag)
 }
 
 type BattleTagQueue struct {
@@ -176,16 +126,4 @@ func (q *BattleTagQueue) Remove(ubt *userBattleTag) error {
 
 func (q *BattleTagQueue) Size() (int, error) {
 	return q.q.Size()
-}
-
-func parseAllBattleTags(text string) []string {
-	words := strings.Split(strings.Replace(text, ",", "", -1), " ")
-	btags := []string{}
-	for _, word := range words {
-		if validBattleTag(strings.TrimSpace(word)) {
-			btags = append(btags, word)
-		}
-	}
-
-	return btags
 }

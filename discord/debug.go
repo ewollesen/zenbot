@@ -50,7 +50,7 @@ func (h *debugHandler) Handle(s Session, m *discordgo.MessageCreate,
 		case "clear":
 			err = h.handleClear(s, m)
 		default:
-			err = reply(s, m, "no help written yet")
+			reply(s, m, "no help written yet")
 		}
 	}
 
@@ -64,12 +64,12 @@ func (h *debugHandler) Help(argv ...string) string {
 func (h *debugHandler) handleCache(s Session, m *discordgo.MessageCreate) (
 	err error) {
 
-	logger.Warne(reply(s, m, "Cache dump starting:"))
+	reply(s, m, "Cache dump starting:")
 	h.btags.Iter(func(key string, value string) bool {
-		logger.Warne(reply(s, m, "key: %s => %s", key, value))
+		reply(s, m, "key: %s => %s", key, value)
 		return false
 	})
-	logger.Warne(reply(s, m, "Cache dump completed."))
+	reply(s, m, "Cache dump completed.")
 	return nil
 }
 
@@ -78,7 +78,9 @@ func (h *debugHandler) handleClear(s Session, m *discordgo.MessageCreate) (
 
 	err = h.btags.Clear()
 	if err != nil {
-		return reply(s, m, "Error clearing cache: %#v", err)
+		reply(s, m, "Error clearing cache: %#v", err)
+		return err
 	}
-	return reply(s, m, "Cache cleared.")
+	reply(s, m, "Cache cleared.")
+	return nil
 }

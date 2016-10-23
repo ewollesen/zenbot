@@ -20,10 +20,12 @@ import (
 )
 
 var (
-	logger            = spacelog.GetLogger()
-	Error             = errors.NewClass("overwatch")
-	BattleTagInvalid  = Error.NewClass("BattleTag invalid")
-	BattleTagNotFound = Error.NewClass("no BattleTag found")
+	logger           = spacelog.GetLogger()
+	Error            = errors.NewClass("overwatch")
+	BattleTagInvalid = Error.NewClass("BattleTag invalid",
+		errors.NoCaptureStack())
+	BattleTagNotFound = Error.NewClass("no BattleTag found",
+		errors.NoCaptureStack())
 )
 
 type OfficialAPI interface {

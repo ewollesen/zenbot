@@ -22,10 +22,12 @@ import (
 	"time"
 
 	"github.com/ewollesen/discordgo"
+	"github.com/ewollesen/zenbot/blizzard"
 	"github.com/ewollesen/zenbot/overwatch"
 	"github.com/ewollesen/zenbot/queue"
 	"github.com/ewollesen/zenbot/ratelimiter"
 	"github.com/ewollesen/zenbot/ratelimiter/concretelimiter"
+	"github.com/ewollesen/zenbot/util"
 )
 
 var (
@@ -43,7 +45,7 @@ var (
 		"`!queue take <n>` - takes the first <n> BattleTags from the scrimmages queue (default: 12, admin-only)",
 		"`!queue help` - displays this help message",
 	}, "\n")
-	BTagNotFound = Error.NewClass("couldn't find a BattleTag for rank")
+	PermissionDenied = Error.NewClass("permission denied")
 )
 
 type queueHandler struct {
@@ -74,8 +76,7 @@ func (h *queueHandler) Handle(s Session, m *discordgo.MessageCreate,
 	case "dequeue":
 		err = h.handleDequeue(s, m)
 	case "enqueue":
-		err = h.enqueueRateLimited(s, m,
-			h.handleEnqueueLookupSkillRank(h.handleEnqueueUnlimited))
+		err = h.enqueueRateLimited(s, m, h.handleEnqueueUnlimited)
 	case "queue":
 		sub_cmd := "help"
 		if len(argv) > 1 {
@@ -96,7 +97,7 @@ func (h *queueHandler) Handle(s Session, m *discordgo.MessageCreate,
 		case "take", "pick":
 			err = h.auth2KickRequired(s, m, h.handleTakeUnsafe)
 		default:
-			err = reply(s, m, helpMsg)
+			reply(s, m, helpMsg)
 		}
 	}
 
@@ -115,147 +116,266 @@ func (h *queueHandler) handleClearUnsafe(s Session,
 		return err
 	}
 
-	return reply(s, m, "Scrimmages queue cleared.")
+	reply(s, m, "Scrimmages queue cleared.")
+	return nil
+}
+
+func (h *queueHandler) cacheBattleTag(s Session, m *discordgo.MessageCreate,
+	btag string) error {
+
+	return h.btags.Set(userKey(s, m), btag)
+}
+
+func (h *queueHandler) lookupBattleTag(s Session, m *discordgo.MessageCreate) (
+	btag string, err error) {
+
+	return h.btags.Get(userKey(s, m))
+}
+
+// Look for a BattleTag in the cache, or in the User's nick. No validation is
+// performed.
+func (h *queueHandler) discoverBattleTag(s Session, m *discordgo.MessageCreate) (
+	btag string, err error) {
+
+	btag, err = h.lookupBattleTag(s, m)
+	if err == nil && btag != "" { // WARNING: FLIPPED
+		return btag, nil
+	}
+	logger.Warne(err)
+
+	nick := h.lookupNickOrUsername(s, m)
+	if btag = blizzard.FirstBattleTag(nick); btag == "" {
+		return "", overwatch.BattleTagNotFound.New(nick)
+	}
+
+	return btag, nil
+}
+
+// TODO: cache these? how do we invalidate the cache?
+func (h *queueHandler) lookupNick(s Session, m *discordgo.MessageCreate) (
+	nick string, err error) {
+
+	channel, err := s.Channel(m.ChannelID)
+	if err != nil {
+		return "", err
+	}
+
+	member, err := s.Member(channel.GuildID, m.Author.ID)
+	if err != nil {
+		return "", err
+	}
+
+	if member.Nick == "" {
+		return m.Author.Username, nil
+	}
+
+	return member.Nick, nil
+}
+
+func (h *queueHandler) lookupNickOrUsername(s Session,
+	m *discordgo.MessageCreate) string {
+
+	nick, err := h.lookupNick(s, m)
+	if err != nil {
+		logger.Warne(err)
+		nick = m.Author.Username
+	}
+
+	return nick
+}
+
+func (h *queueHandler) lookupSkillRank(btag string) {
+	go func(btag string) {
+		_, _, err := h.overwatch.SkillRank("pc", "us", btag)
+		logger.Warne(err)
+	}(btag)
 }
 
 func (h *queueHandler) handleDequeue(s Session,
 	m *discordgo.MessageCreate) (err error) {
 
-	// TODO: don't allow passing someone else's battle tag on the command line
-	btag, err := findBattleTag(h.overwatch, h.btags, s, m)
+	// Just ignore any text after the command. Users may only dequeue
+	// themselves. Admins can use the `!queue kick` command to remove people
+	// other than themselves.
+
+	nick := h.lookupNickOrUsername(s, m)
+	btag, err := h.discoverBattleTag(s, m)
 	if err != nil {
-		if overwatch.BattleTagNotFound.Contains(err) {
-			return reply(s, m, "No BattleTag specified. "+
-				"Try `!dequeue example#1234`. "+
-				"Remember, BattleTags are CaSe-SeNsItIvE!")
-		}
-		if overwatch.BattleTagInvalid.Contains(err) {
-			return reply(s, m, "Invalid BattleTag. "+
-				"Try `!dequeue example#1234`.")
-		}
-		logger.Errore(err)
-		return reply(s, m, "Error parsing BattleTag.")
+		reply(s, m, "Error finding BattleTag for %s.", nick)
+		return err
 	}
 
 	err = h.q.Remove(h.wrapBattleTag(s, m, string(btag)))
 	if err != nil {
 		if queue.NotFound.Contains(err) {
-			return reply(s, m, "BattleTag %q was not found in the "+
+			reply(s, m, "BattleTag %s was not found in the "+
 				"scrimmages queue.", btag)
+			return err
 		}
+		reply(s, m, "Error dequeueing %s from the scrimmages queue. "+
+			"Please try again.", btag)
 		return err
 	}
 
-	return reply(s, m, "Dequeued %q from the scrimmages queue.", btag)
+	reply(s, m, "Dequeued %s (%s) from the scrimmages queue.", btag, nick)
+	return nil
 }
 
 func (h *queueHandler) handleEnqueueUnlimited(s Session,
-	m *discordgo.MessageCreate) (success bool, err error) {
+	m *discordgo.MessageCreate) (err error) {
 
-	btag, err := h.lookupSkillRankWrapper(findBattleTag(h.overwatch, h.btags, s, m))
-	if err != nil {
-		if overwatch.BattleTagNotFound.Contains(err) {
-			return false, reply(s, m, "No BattleTag specified. "+
-				"Try `!enqueue example#1234`. "+
-				"Remember, BattleTags are CaSe-SeNsItIvE!")
+	btag := ""
+	args := strings.Split(m.Content, " ")
+	nick := h.lookupNickOrUsername(s, m)
+
+	if len(args) > 1 {
+		text := strings.Join(args[1:], " ")
+		if btag = blizzard.FirstBattleTag(text); btag == "" {
+			reply(s, m, "Invalid BattleTag %q. "+
+				"Try `!enqueue example#1234`.", text)
+			return overwatch.BattleTagInvalid.New(text)
 		}
-		if overwatch.BattleTagInvalid.Contains(err) {
-			return false, reply(s, m, "Invalid BattleTag. "+
-				"Try `!enqueue example#1234`. "+
-				"Remember, BattleTags are CaSe-SeNsItIvE!")
+	} else {
+		btag, err = h.discoverBattleTag(s, m)
+		if err != nil {
+			if overwatch.BattleTagNotFound.Contains(err) {
+				reply(s, m, "No BattleTag specified. "+
+					"Try `!enqueue example#1234`.")
+				return err
+			}
+			reply(s, m, "Error finding BattleTag for %s.", nick)
+			return err
 		}
-		logger.Errore(err)
-		return false, reply(s, m, "Error parsing BattleTag.")
 	}
 
-	logger.Warne(h.btags.Set(userKey(s, m), btag))
+	valid, err := h.overwatch.IsValidBattleTag("pc", "us", btag)
+	if err != nil {
+		reply(s, m, "Error validating BattleTag %q. "+
+			"Please try again.", btag)
+		return err
+	}
+	if !valid {
+		reply(s, m, "Invalid BattleTag %q. "+
+			"Try `!enqueue example#1234`. "+
+			"Remember, BattleTags are CaSe-SeNsItIvE!", btag)
+		return overwatch.BattleTagInvalid.New(btag)
+	}
 
-	pos, err := h.q.Enqueue(h.wrapBattleTag(s, m, string(btag)))
+	logger.Errore(h.cacheBattleTag(s, m, btag))
+	h.lookupSkillRank(btag)
+
+	pos, err := h.q.Enqueue(h.wrapBattleTag(s, m, btag))
 	if err != nil {
 		if queue.AlreadyEnqueued.Contains(err) {
-			return false, reply(s, m, "BattleTag %q is already enqueued "+
+			reply(s, m, "BattleTag %s is already enqueued "+
 				"in the scrimmages queue in position %d.",
 				btag, queue.GetPosition(err)+1)
+			return err
 		}
-		return false, err
+		reply(s, m, "Error enqueueing %s (%s) into the scrimmages "+
+			"queue. Please try again.", btag, nick)
+		return err
 	}
 
-	return true, reply(s, m, "Enqueued %q in the scrimmages queue in position %d.",
-		btag, pos+1)
-}
-
-func (h *queueHandler) handleEnqueueLookupSkillRank(fn successHandler) successHandler {
-	return func(s Session, m *discordgo.MessageCreate) (bool, error) {
-		success, real_err := fn(s, m)
-		if success {
-			btag, err := h.btags.Get(userKey(s, m))
-			if err != nil {
-				logger.Warne(err)
-				return success, real_err
-			}
-			_, _, err = h.overwatch.SkillRank("pc", "us", btag)
-			logger.Warne(err)
-		}
-
-		return success, real_err
-	}
+	reply(s, m, "Enqueued %s (%s) in the scrimmages queue in position %d.",
+		btag, nick, pos+1)
+	return nil
 }
 
 func (h *queueHandler) handleAddUnsafe(s Session,
 	m *discordgo.MessageCreate) (err error) {
 
-	btags := []string{}
-	for _, btag := range parseAllBattleTags(m.Content) {
-		if btag == "" {
+	args := strings.Split(m.Content, " ")
+	if len(args) < 3 {
+		reply(s, m, "No BattleTag specified. "+
+			"Try `!queue add example#1234`.")
+		return nil
+	}
+
+	btags := blizzard.FindBattleTags(m.Content)
+	if len(btags) == 0 {
+		reply(s, m, "No valid BattleTags specified."+
+			"Try `!queue add example#1234`.")
+		return nil
+	}
+
+	added_btags := []string{}
+	for _, btag := range btags {
+		valid, err := h.overwatch.IsValidBattleTag("pc", "us", btag)
+		if err != nil {
+			reply(s, m, "Error validating BattleTag %q.")
+			logger.Errore(err)
+			continue
+		}
+		if !valid {
+			reply(s, m, "Invalid BattleTag %q. "+
+				"Try `!queue add example#1234`. "+
+				"Remember, BattleTags are CaSe-SeNsItIvE!", btag)
 			continue
 		}
 
-		btags = append(btags, h.lookupSkillRank(btag))
-	}
-
-	if len(btags) == 0 {
-		return reply(s, m, "No BattleTag specified. "+
-			"Try `!queue add example#1234`.")
-	}
-
-	for _, btag := range btags {
-		pos, err := h.q.Enqueue(h.wrapBattleTag(s, m, btag))
+		_, err = h.q.Enqueue(h.wrapBattleTag(s, m, btag))
 		if err != nil {
 			if queue.AlreadyEnqueued.Contains(err) {
-				logger.Warne(reply(s, m, "BattleTag %q is already enqueued "+
-					"in the scrimmages queue in position %d.",
-					btag, queue.GetPosition(err)+1))
+				reply(s, m, "BattleTag %q is already enqueued "+
+					"in the scrimmages queue in position "+
+					"%d.", btag, queue.GetPosition(err)+1)
 				continue
 			}
+			reply(s, m, "Error adding %q to the scrimmages queue.", btag)
 			logger.Errore(err)
-			return reply(s, m, "Error adding %q to the scrimmages queue.", btag)
+			continue
 		}
-		logger.Errore(reply(s, m, "Enqueued %q in the scrimmages queue in position %d.",
-			btag, pos+1))
+
+		added_btags = append(added_btags, btag)
+		// DO NOT cache BattleTags added in this way.
+		h.lookupSkillRank(btag)
 	}
 
+	reply(s, m, "Added %s to the scrimmages queue.",
+		util.ToList(added_btags))
 	return nil
 }
 
 func (h *queueHandler) handleKickUnsafe(s Session,
 	m *discordgo.MessageCreate) (err error) {
 
-	btag := parseBattleTag(m.Content)
-	if btag == "" {
-		return reply(s, m, "No BattleTag specified. "+
+	args := strings.Split(m.Content, " ")
+	if len(args) < 3 {
+		reply(s, m, "No BattleTag specified. "+
 			"Try `!queue kick example#1234`.")
+		return nil
 	}
 
-	err = h.q.Remove(h.wrapBattleTag(s, m, btag))
-	if err != nil {
-		if queue.NotFound.Contains(err) {
-			return reply(s, m, "BattleTag %q was not found in the "+
-				"scrimmages queue.", btag)
+	btags := blizzard.FindBattleTags(m.Content)
+	if len(btags) == 0 {
+		reply(s, m, "No valid BattleTags specified."+
+			"Try `!queue kick example#1234`.")
+		return nil
+	}
+
+	// There's no need to validate the BattleTags, since the user is kicking
+	// them. In theory, if the BattleTag is invalid, it won't be in the
+	// queue, so no harm, no foul.
+	kicked_btags := []string{}
+	for _, btag := range btags {
+		if err = h.q.Remove(h.wrapBattleTag(s, m, btag)); err != nil {
+			if queue.NotFound.Contains(err) {
+				reply(s, m, "BattleTag %q was not found in "+
+					"the scrimmages queue.", btag)
+				continue
+			}
+			logger.Warne(err)
+			reply(s, m, "Error kicking %s from the scrimmages "+
+				"queue.", btag)
+			continue
 		}
-		return err
+		kicked_btags = append(kicked_btags, btag)
 	}
 
-	return reply(s, m, "Kicked %q from the scrimmages queue.", btag)
+	reply(s, m, "Kicked %s from the scrimmages queue.",
+		util.ToList(kicked_btags))
+	return nil
 }
 
 func (h *queueHandler) handleList(s Session,
@@ -266,10 +386,12 @@ func (h *queueHandler) handleList(s Session,
 		return err
 	}
 	if len(btags) == 0 {
-		return reply(s, m, "The scrimmages queue is empty.")
+		reply(s, m, "The scrimmages queue is empty.")
+		return nil
 	}
-	return reply(s, m, "The scrimmages queue contains %d "+
-		"BattleTags: %s.", len(btags), strings.Join(btags, ", "))
+	reply(s, m, "The scrimmages queue contains %d "+
+		"BattleTags: %s", len(btags), util.ToList(btags))
+	return nil
 }
 
 func (h *queueHandler) handleTakeUnsafe(s Session,
@@ -286,8 +408,9 @@ func (h *queueHandler) handleTakeUnsafe(s Session,
 	}
 
 	if num_to_take <= 0 {
-		return reply(s, m, "Specified number of BattleTags to take "+
+		reply(s, m, "Specified number of BattleTags to take "+
 			"(%d) must be > 0.", num_to_take)
+		return nil
 	}
 
 	taken, num_left, err := h.q.DequeueN(num_to_take)
@@ -296,9 +419,10 @@ func (h *queueHandler) handleTakeUnsafe(s Session,
 	}
 
 	if len(taken) == 0 {
-		return reply(s, m, "Took 0 BattleTags from the scrimmages "+
+		reply(s, m, "Took 0 BattleTags from the scrimmages "+
 			"queue. %d BattleTags remain in the scrimmages queue.",
 			num_left)
+		return nil
 	}
 
 	btags := []string{}
@@ -306,12 +430,13 @@ func (h *queueHandler) handleTakeUnsafe(s Session,
 		btags = append(btags, btag.BattleTag)
 	}
 
-	// TODO: move me to a wrapper
+	// TODO: move me to a wrapper?
 	go func() { logger.Warne(h.replyPartition(s, m, btags)) }()
 
-	return reply(s, m, "Took %d BattleTags from the scrimmages queue: %s. "+
+	reply(s, m, "Took %d BattleTags from the scrimmages queue: %s. "+
 		"%d BattleTags remain in the scrimmages queue.",
-		len(taken), strings.Join(btags, ", "), num_left)
+		len(taken), util.ToList(btags), num_left)
+	return nil
 }
 
 func (h *queueHandler) queueBattleTags() (btags []string, err error) {
@@ -331,7 +456,8 @@ func (h *queueHandler) handleQueuePartition(s Session,
 		return err
 	}
 	if len(btags) == 0 {
-		return reply(s, m, "The scrimmages queue is empty.")
+		reply(s, m, "The scrimmages queue is empty.")
+		return nil
 	}
 	go func() { logger.Warne(h.replyPartition(s, m, btags)) }()
 
@@ -348,33 +474,33 @@ func (h *queueHandler) auth2KickRequired(s Session,
 	}
 
 	if !granted {
-		return reply(s, m, "Permission denied.")
+		reply(s, m, "Permission denied.")
+		return PermissionDenied.New("")
 	}
 
 	return fn(s, m)
 }
 
-func (h *queueHandler) enqueueRateLimited(s Session,
-	m *discordgo.MessageCreate, fn successHandler) error {
+func (h *queueHandler) enqueueRateLimited(s Session, m *discordgo.MessageCreate,
+	handler bareHandler) error {
 
 	trigger, err := h.enqueue_rl.Limit(userKey(s, m))
 	if err != nil {
 		if ratelimiter.TooSoon.Contains(err) {
-			return reply(s, m,
+			reply(s, m,
 				"You may enqueue at most once every %d "+
 					"minutes, %s. Please try again later.",
 				*enqueueRateLimit/time.Minute,
 				mention(m.Author.ID))
+			return err
 		}
+		reply(s, m, "Error checking enqueue rate limits. "+
+			"Please try again.")
 		return err
 	}
 
-	success, err := fn(s, m)
-	if err != nil {
+	if err := handler(s, m); err != nil {
 		return err
-	}
-	if !success {
-		return nil
 	}
 
 	return trigger()
@@ -403,7 +529,6 @@ func (h *queueHandler) wrapBattleTag(s Session, m *discordgo.MessageCreate,
 }
 
 type bareHandler func(Session, *discordgo.MessageCreate) error
-type successHandler func(Session, *discordgo.MessageCreate) (bool, error)
 
 func (h *queueHandler) clearEnqueueRateLimits(fn bareHandler) bareHandler {
 	return func(s Session, m *discordgo.MessageCreate) (err error) {
@@ -423,30 +548,4 @@ func (h *queueHandler) replyPartition(s Session,
 	m *discordgo.MessageCreate, btags []string) error {
 
 	return replyPartition(s, m, h.overwatch, btags)
-}
-
-func (h *queueHandler) lookupSkillRank(btag string) string {
-	if !validBattleTag(btag) {
-		return btag
-	}
-
-	go func() {
-		_, _, err := h.overwatch.SkillRank("pc", "us", btag)
-		if err != nil {
-			logger.Warne(err)
-			return
-		}
-	}()
-
-	return btag
-}
-
-func (h *queueHandler) lookupSkillRankWrapper(btag string, err error) (
-	string, error) {
-
-	if err != nil {
-		return btag, err
-	}
-
-	return h.lookupSkillRank(btag), nil
 }

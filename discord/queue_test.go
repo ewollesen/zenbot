@@ -21,8 +21,11 @@ import (
 	"github.com/ewollesen/discordgo"
 
 	memorycache "github.com/ewollesen/zenbot/cache/memory"
+	"github.com/ewollesen/zenbot/overwatch"
 	"github.com/ewollesen/zenbot/overwatch/mockoverwatch"
+	"github.com/ewollesen/zenbot/queue"
 	memoryqueue "github.com/ewollesen/zenbot/queue/memory"
+	"github.com/ewollesen/zenbot/ratelimiter"
 	"github.com/ewollesen/zenbot/ratelimiter/mocklimiter"
 )
 
@@ -70,29 +73,26 @@ func TestClearEnqueueRateLimits(t *testing.T) {
 }
 
 func TestEnqueueRateLimited(t *testing.T) {
-	test := newDiscordTest(t)
-	qh := newQueueHandler(newBattleTagQueue(memoryqueue.New()),
-		NewBattleTagCache(memorycache.New()), mockoverwatch.NewRandom())
+	test, qh := newQueueTest(t)
 	s := test.mockSession()
 	m := test.testMessage("!enqueue example#1234")
 
-	called := 0
-	f := func(s Session, m *discordgo.MessageCreate) (bool, error) {
-		called++
-		return true, nil
+	calls := 0
+	f := func(s Session, m *discordgo.MessageCreate) error {
+		calls++
+		return nil
 	}
 
 	test.AssertNil(qh.enqueueRateLimited(s, m, f))
-	test.AssertEqual(called, 1)
+	test.AssertEqual(calls, 1)
 
-	test.AssertNil(qh.enqueueRateLimited(s, m, f))
-	test.AssertEqual(called, 1)
+	test.AssertTooSoon(qh.enqueueRateLimited(s, m, f))
+	test.AssertEqual(calls, 1)
 	test.AssertContainsRe(s.sends, "You may enqueue at most once every")
 
 	test.AssertNil(qh.enqueue_rl.Clear())
-
 	test.AssertNil(qh.enqueueRateLimited(s, m, f))
-	test.AssertEqual(called, 2)
+	test.AssertEqual(calls, 2)
 }
 
 func TestHandleClearUnsafe(t *testing.T) {
@@ -116,28 +116,25 @@ func TestHandleDequeue(t *testing.T) {
 		Nick: "nick-without-battletag",
 	})
 
-	test.AssertNil(qh.handleDequeue(s, m))
-	test.AssertContainsRe(s.sends,
-		"No BattleTag specified. Try `!dequeue example#1234`.")
+	// No BattleTag cached, and none Nick
+	test.AssertNotFound(qh.handleDequeue(s, m))
+	test.AssertContainsRe(s.sends, "Error finding BattleTag for")
 
-	s.setMember(testGuildId, testUserId, &discordgo.Member{
-		Nick: testNick,
-	})
+	// No BattleTag cached, but one found in Nick
+	s.clearSends()
+	s.setMember(testGuildId, testUserId, &discordgo.Member{Nick: testNick})
 	test.enqueue(qh.wrapBattleTag(s, m, string(testBattleTag)))
-
 	test.AssertNil(qh.handleDequeue(s, m))
 	size, err := qh.q.Size()
 	test.AssertNil(err)
 	test.AssertEqual(size, 0)
+	test.AssertContainsRe(s.sends, "Dequeued .* from the scrimmages queue.")
 
-	test.AssertContains(s.sends,
-		"Dequeued \"example#1234\" from the scrimmages queue.")
-
+	// BattleTag found in nick, but not in the queue
 	s.clearSends()
-	test.AssertNil(qh.handleDequeue(s, m))
-	test.AssertContains(s.sends,
-		"BattleTag \"example#1234\" was not found in "+
-			"the scrimmages queue.")
+	test.AssertErrorContainedBy(qh.handleDequeue(s, m), queue.NotFound)
+	test.AssertContainsRe(s.sends,
+		"BattleTag .* was not found in the scrimmages queue.")
 }
 
 func TestHandleEnqueueUnlimited(t *testing.T) {
@@ -147,19 +144,14 @@ func TestHandleEnqueueUnlimited(t *testing.T) {
 	s.setMember(testGuildId, testUserId, &discordgo.Member{
 		Nick: "nick-without-battletag",
 	})
-	success, err := qh.handleEnqueueUnlimited(s, m)
-	test.AssertNil(err)
-	test.Assert(!success)
-	test.AssertContainsRe(s.sends,
-		"No BattleTag specified. Try `!enqueue example#1234`.")
+
+	test.AssertNotFound(qh.handleEnqueueUnlimited(s, m))
+	test.AssertContainsRe(s.sends, `No BattleTag specified.*`)
 
 	m = test.testMessage("!enqueue example#1234")
-	success, err = qh.handleEnqueueUnlimited(s, m)
-	test.AssertNil(err)
-	test.Assert(success)
-	test.AssertContains(s.sends,
-		"Enqueued \"example#1234\" in the scrimmages queue "+
-			"in position 1.")
+	test.AssertNil(qh.handleEnqueueUnlimited(s, m))
+	test.AssertContainsRe(s.sends,
+		"Enqueued .* in the scrimmages queue in position 1.")
 }
 
 func TestHandleAddUnsafe(t *testing.T) {
@@ -178,13 +170,13 @@ func TestHandleAddUnsafe(t *testing.T) {
 	err = qh.handleAddUnsafe(s, m)
 	test.AssertNil(err)
 	test.AssertContains(s.sends,
-		"Enqueued \"example#1234\" in the scrimmages queue "+
-			"in position 1.")
+		"Added example#1234 to the scrimmages queue.")
 
 	s.clearSends()
 	err = qh.handleAddUnsafe(s, m)
 	test.AssertNil(err)
-	test.AssertContainsRe(s.sends, "BattleTag.*already enqueued.*position 1.")
+	test.AssertContainsRe(s.sends,
+		"BattleTag .* already enqueued .* position 1.")
 }
 
 func TestHandleKickUnsafe(t *testing.T) {
@@ -211,7 +203,7 @@ func TestHandleKickUnsafe(t *testing.T) {
 	m = test.testMessage("!queue kick example#1234")
 	test.AssertNil(qh.handleKickUnsafe(s, m))
 	test.AssertContains(s.sends,
-		"Kicked \"example#1234\" from the scrimmages queue.")
+		"Kicked example#1234 from the scrimmages queue.")
 }
 
 func TestHandleList(t *testing.T) {
@@ -226,14 +218,14 @@ func TestHandleList(t *testing.T) {
 	s.clearSends()
 	test.AssertNil(qh.handleList(s, m))
 	test.AssertContains(s.sends, "The scrimmages queue contains "+
-		"1 BattleTags: example#1234.")
+		"1 BattleTags: example#1234")
 
 	m.Author.ID = "test-user-456"
 	test.enqueue(qh.wrapBattleTag(s, m, "example#5678"))
 	s.clearSends()
 	test.AssertNil(qh.handleList(s, m))
 	test.AssertContains(s.sends, "The scrimmages queue contains "+
-		"2 BattleTags: example#1234, example#5678.")
+		"2 BattleTags: example#1234  example#5678")
 }
 
 func TestTakeUnsafe(t *testing.T) {
@@ -265,7 +257,7 @@ func TestTakeUnsafe(t *testing.T) {
 	m = test.testMessage("!queue take 2")
 	test.AssertNil(qh.handleTakeUnsafe(s, m))
 	test.AssertContainsRe(s.sends, "Took 2 BattleTags.* 2 BattleTags remain")
-	test.AssertContainsRe(s.sends, ": "+users[12].BattleTag+", "+users[0].BattleTag)
+	test.AssertContainsRe(s.sends, ": "+users[12].BattleTag+"  "+users[0].BattleTag)
 }
 
 func TestHelp(t *testing.T) {
@@ -286,27 +278,23 @@ func TestDoubleEnqueue(t *testing.T) {
 	s := test.mockSession()
 
 	m := test.testMessage("!enqueue example#1234")
-	success, err := qh.handleEnqueueUnlimited(s, m)
+	err := qh.handleEnqueueUnlimited(s, m)
 	test.AssertNil(err)
-	test.Assert(success)
-	test.AssertContains(s.sends,
-		"Enqueued \"example#1234\" in the scrimmages queue "+
-			"in position 1.")
+	test.AssertContainsRe(s.sends,
+		"Enqueued .* in the scrimmages queue in position 1.")
 
 	s.clearSends()
-	success, err = qh.handleEnqueueUnlimited(s, m)
-	test.AssertNil(err)
-	test.Assert(!success)
+	test.AssertErrorContainedBy(qh.handleEnqueueUnlimited(s, m),
+		queue.AlreadyEnqueued)
 	test.AssertContainsRe(s.sends,
-		"BattleTag \"example#1234\" is already enqueued .* position 1.")
+		"BattleTag .* is already enqueued .* position 1.")
 
 	test.Logf("Still need to handle the double enqueue issue")
 	test.SkipNow()
 	s.clearSends()
 	m = test.testMessage("!enqueue example#5678")
-	success, err = qh.handleEnqueueUnlimited(s, m)
+	err = qh.handleEnqueueUnlimited(s, m)
 	test.AssertNil(err)
-	test.Assert(success)
 	test.AssertContainsRe(s.sends,
 		"BattleTag \"example#1234\" is already enqueued .* position 1.")
 }
@@ -342,6 +330,14 @@ func (t *queueTest) enqueue(btags ...*userBattleTag) {
 		t.AssertNil(err)
 		t.AssertEqual(size, pre_size+1)
 	}
+}
+
+func (t *queueTest) AssertTooSoon(err error) {
+	t.AssertErrorContainedBy(err, ratelimiter.TooSoon)
+}
+
+func (t *queueTest) AssertNotFound(err error) {
+	t.AssertErrorContainedBy(err, overwatch.BattleTagNotFound)
 }
 
 func msgFromUserBattleTag(u *userBattleTag) *discordgo.MessageCreate {

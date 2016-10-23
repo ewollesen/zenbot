@@ -15,6 +15,7 @@
 package discord
 
 import (
+	"fmt"
 	"math/rand"
 	"testing"
 
@@ -71,7 +72,8 @@ func (s *mockSession) Member(guild_id, user_id string) (
 	if ok {
 		return m, nil
 	}
-	return nil, nil
+	return nil, fmt.Errorf("No member set for guild:user %s:%s",
+		guild_id, user_id)
 }
 
 func (s *mockSession) User(user_id string) (*discordgo.User, error) {

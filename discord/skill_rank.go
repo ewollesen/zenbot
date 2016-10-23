@@ -20,8 +20,10 @@ import (
 	"strings"
 
 	"github.com/ewollesen/discordgo"
+	"github.com/ewollesen/zenbot/blizzard"
 	"github.com/ewollesen/zenbot/overwatch"
 	"github.com/ewollesen/zenbot/partition"
+	"github.com/ewollesen/zenbot/util"
 )
 
 var (
@@ -45,6 +47,7 @@ var (
 	}, "\n"))
 
 	TooManyLookupFailures = Error.NewClass("too many skill rank lookup failures")
+	BTagNotFound          = Error.NewClass("couldn't find a BattleTag for rank")
 )
 
 type skillRankHandler struct {
@@ -80,7 +83,7 @@ func (sr *skillRankHandler) Handle(s Session, m *discordgo.MessageCreate,
 		}
 		switch sub_cmd {
 		case "help":
-			err = reply(s, m, skillRankHelpMsg)
+			reply(s, m, skillRankHelpMsg)
 		default:
 			err = sr.handleSkillRank(s, m, sub_cmd)
 		}
@@ -106,28 +109,19 @@ func (sr *skillRankHandler) handleSkillRank(s Session,
 
 	rank, img_url, err := sr.overwatch.SkillRank("pc", "us", btag)
 	if err != nil {
-		logger.Errore(err)
-		return reply(s, m, "Error looking up skill rank for %q "+
+		reply(s, m, "Error looking up skill rank for %s "+
 			"(remember, BattleTags are CaSe-SeNsItIvE!)", btag)
+		return err
 	}
-	return reply(s, m, "Skill rank for %q: %d (%s).", btag, rank,
+	reply(s, m, "Skill rank for %s: %d (%s).", btag, rank,
 		imageUrlToName(img_url))
+	return nil
 }
 
 func (sr *skillRankHandler) handleTeams(s Session,
 	m *discordgo.MessageCreate) (err error) {
 
-	btags := []string{}
-	for _, btag := range parseAllBattleTags(m.Content) {
-		if btag == "" {
-			continue
-		}
-		// Don't lookup the skill rank here, let the partitioner do it,
-		// so they're not racing.
-		btags = append(btags, btag)
-	}
-
-	return sr.replyPartition(s, m, btags)
+	return sr.replyPartition(s, m, blizzard.FindBattleTags(m.Content))
 }
 
 // TODO: DRY up with queueHandler's version
@@ -187,7 +181,7 @@ func partitionBattleTags(ow overwatch.OverwatchAPI, btags []string) (
 		// skill rank, and give them the average of the other players.
 		average_rank := averageRank(all_ranks)
 		for _, btag := range no_ranks {
-			logger.Debugf("assigning average rank (%d) for btag %q",
+			logger.Debugf("assigning average rank (%d) for btag %s",
 				average_rank, btag)
 			all_ranks = append(all_ranks, average_rank)
 			_, ok := ranks[average_rank]
@@ -239,15 +233,16 @@ func replyPartition(s Session, m *discordgo.MessageCreate,
 
 	team_one, team_two, err := partitionBattleTags(ow, btags)
 	if err != nil {
-		logger.Errore(err)
 		if TooManyLookupFailures.Contains(err) {
-			return replyPrivate(s, m, "I failed to look up Skill "+
+			replyPrivate(s, m, "I failed to look up Skill "+
 				"Ranks for >= 25%% of the BattleTags listed, "+
 				"so I'm giving up. Look up failures are often "+
 				"caused by case-sensitivity errors in "+
 				"BattleTags.")
+		} else {
+			replyPrivate(s, m, "Error partitioning into teams.")
 		}
-		return replyPrivate(s, m, "Error partitioning into teams.")
+		return err
 	}
 
 	team_one_avg := 0.0
@@ -270,10 +265,11 @@ func replyPartition(s Session, m *discordgo.MessageCreate,
 	sort.Strings(team_two_btags)
 
 	// Don't join with commas, they'll only cause copy pasta errors
-	return replyPrivate(s, m,
+	replyPrivate(s, m,
 		`I suggest the following teams based on skill rank:
 Team 1 (avg. %0.1f): %s
 Team 2 (avg. %0.1f): %s`,
-		team_one_avg, strings.Join(team_one_btags, "  "),
-		team_two_avg, strings.Join(team_two_btags, "  "))
+		team_one_avg, util.ToList(team_one_btags),
+		team_two_avg, util.ToList(team_two_btags))
+	return nil
 }

@@ -74,24 +74,26 @@ func New(redis_client *redis.Client) *bot {
 	b.RegisterCommand("ping", &discordHandler{commands.Pong})
 
 	var q queue.Queue
-	var c, owc cache.Cache
+	var c, owc, vbtc cache.Cache
 	if redis_client != nil {
 		logger.Infof("using redis queue and cache")
 		q = redisqueue.New(redis_client, *redisKeySpace+".queues.scrimmages")
 		c = rediscache.New(redis_client, *redisKeySpace+".caches.battletags", 0)
 		owc = rediscache.New(redis_client, *redisKeySpace+".caches.overwatch", time.Hour*12)
+		vbtc = rediscache.New(redis_client, *redisKeySpace+".cached.blizzard.battletags", 0)
 	} else {
 		logger.Infof("using memory queue and cache")
 		q = memoryqueue.New()
 		c = memorycache.New()
 		owc = memorycache.New()
+		vbtc = memorycache.New()
 	}
 
 	b.session_cache = memorycache.New()
 
 	btq := newBattleTagQueue(q)
 	btc := NewBattleTagCache(c)
-	cow := overwatch.NewCaching(lootbox.New(blizzard.New()), owc)
+	cow := overwatch.NewCaching(lootbox.New(blizzard.NewCaching(vbtc)), owc)
 	qh := newQueueHandler(btq, btc, cow)
 	b.RegisterCommand("dequeue", qh)
 	b.RegisterCommand("enqueue", qh)

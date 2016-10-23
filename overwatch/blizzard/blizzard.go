@@ -20,6 +20,7 @@ import (
 
 	"net/http"
 
+	"github.com/ewollesen/zenbot/blizzard"
 	"github.com/ewollesen/zenbot/overwatch"
 	"github.com/spacemonkeygo/spacelog"
 )
@@ -47,6 +48,10 @@ func (b *blizzardScrape) SkillRank(platform, region, battle_tag string) (
 
 func (b *blizzardScrape) IsValidBattleTag(platform, region, battle_tag string) (
 	bool, error) {
+
+	if !blizzard.WellFormedBattleTag(battle_tag) {
+		return false, nil
+	}
 
 	resp, err := b.client.Head(b.buildUrl(platform, region, battle_tag))
 	if err != nil {

@@ -15,10 +15,12 @@
 package discord
 
 import (
+	"fmt"
 	"math/rand"
 	"strings"
 	"testing"
 
+	"github.com/ewollesen/discordgo"
 	"github.com/ewollesen/zenbot/overwatch/mockoverwatch"
 )
 
@@ -28,6 +30,12 @@ func TestHandleTeams(t *testing.T) {
 	cmdv := append([]string{"teams"}, mockoverwatch.TestBattleTags...)
 	srh := newSkillRankHandler(mockoverwatch.NewRandom())
 	s := test.mockSession()
+	for i, _ := range mockoverwatch.TestBattleTags {
+		test_user_id := fmt.Sprintf("test-user-%03d", 123+i)
+		s.setMember(testGuildId, test_user_id, &discordgo.Member{
+			Nick: test_user_id,
+		})
+	}
 	m := test.testMessage("!" + strings.Join(cmdv, " "))
 	rand.Seed(13)
 

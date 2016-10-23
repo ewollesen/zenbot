@@ -50,6 +50,8 @@ var (
 	game          = flag.String("discord.game", "!queue help", "Game being played")
 	redisKeySpace = flag.String("discord.redis_keyspace", "discord",
 		"redis keyspace prefix")
+	whitelistedChannels = flag.String("discord.whitelisted_channels", "",
+		"Channel ids on which to listen for commands")
 )
 
 type bot struct {
@@ -206,8 +208,18 @@ func (b *bot) messageHandler(ds *discordgo.Session,
 		return
 	}
 
+	white_listed := true
+	if *whitelistedChannels != "" {
+		white_listed = false
+		for _, channel_id := range strings.Split(*whitelistedChannels, ",") {
+			if channel_id == m.ChannelID {
+				white_listed = true
+				break
+			}
+		}
+	}
 	private := isPrivateMessage(s, m)
-	if !private && !strings.HasPrefix(m.Content, *commandPrefix) {
+	if !private && (!strings.HasPrefix(m.Content, *commandPrefix) || !white_listed) {
 		return
 	}
 	logger.Debugf("<-%t %s: %s", private, m.Author.Username, m.Content)

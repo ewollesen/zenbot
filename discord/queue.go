@@ -267,9 +267,9 @@ func (h *queueHandler) handleEnqueueUnlimited(s Session,
 	pos, err := h.q.Enqueue(h.wrapBattleTag(s, m, btag))
 	if err != nil {
 		if queue.AlreadyEnqueued.Contains(err) {
-			reply(s, m, "BattleTag %s is already enqueued "+
+			reply(s, m, "BattleTag %s (%s) is already enqueued "+
 				"in the scrimmages queue in position %d.",
-				btag, queue.GetPosition(err)+1)
+				btag, nick, queue.GetPosition(err)+1)
 			return err
 		}
 		reply(s, m, "Error enqueueing %s (%s) into the scrimmages "+

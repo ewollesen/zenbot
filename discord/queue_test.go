@@ -154,6 +154,49 @@ func TestHandleEnqueueUnlimited(t *testing.T) {
 		"Enqueued .* in the scrimmages queue in position 1.")
 }
 
+func TestHandleEnqueueUnlimitedAlreadyEnqueuedPosition(t *testing.T) {
+	test, qh := newQueueTest(t)
+	s := test.mockSession()
+	m := test.testMessage("!enqueue example#1234")
+	s.setMember(testGuildId, testUserId, &discordgo.Member{
+		Nick: "nick-without-battletag",
+	})
+
+	test.AssertNil(qh.handleEnqueueUnlimited(s, m))
+	test.AssertContainsRe(s.sends,
+		"Enqueued .* in the scrimmages queue in position 1.")
+
+	m2 := &discordgo.MessageCreate{
+		Message: &discordgo.Message{
+			Author:    &discordgo.User{ID: "test-user-456"},
+			ChannelID: testChannelId,
+			Content:   "!enqueue example#5678",
+		},
+	}
+	test.AssertNil(qh.handleEnqueueUnlimited(s, m2))
+	test.AssertContainsRe(s.sends,
+		"Enqueued .* in the scrimmages queue in position 2.")
+
+	s.clearSends()
+	m3 := &discordgo.MessageCreate{
+		Message: &discordgo.Message{
+			Author:    &discordgo.User{ID: "test-user-456"},
+			ChannelID: testChannelId,
+			Content:   "!enqueue",
+		},
+	}
+	test.AssertErrorContainedBy(qh.handleEnqueueUnlimited(s, m3),
+		queue.AlreadyEnqueued)
+	test.AssertContainsRe(s.sends,
+		"BattleTag example#5678 .* is already enqueued .* position 2.")
+
+	s.clearSends()
+	test.AssertErrorContainedBy(qh.handleEnqueueUnlimited(s, m2),
+		queue.AlreadyEnqueued)
+	test.AssertContainsRe(s.sends,
+		"BattleTag example#5678 .* is already enqueued .* position 2.")
+}
+
 func TestHandleAddUnsafe(t *testing.T) {
 	test, qh := newQueueTest(t)
 	s := test.mockSession()

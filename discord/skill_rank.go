@@ -137,24 +137,23 @@ func (sr *skillRankHandler) handleTeams(s Session,
 }
 
 func (sr *skillRankHandler) replaceMentions(text string) string {
-
-	return mentionRe.ReplaceAllStringFunc(text, func(str string) string {
-
-		btag, err := sr.btags.Get(strings.Trim(str, "<!@>"))
+	replaced := mentionRe.ReplaceAllStringFunc(text, func(str string) string {
+		trimmed := strings.Trim(str, "<!@>")
+		btag, err := sr.btags.Get(trimmed)
 		if err != nil {
 			logger.Warne(err)
 			return str
 		}
 		if btag == "" {
-			logger.Debugf("no btag found in cache for %q",
-				str[2:len(str)-1])
+			logger.Debugf("no btag found in cache for %q", trimmed)
 			return str
 		}
 		logger.Debugf("replacing mention %q with BattleTag %q",
-			str[2:len(str)-2], btag)
+			trimmed, btag)
 		return btag
 	})
-
+	logger.Debugf("replaced %q with %q", text, replaced)
+	return replaced
 }
 
 func (sr *skillRankHandler) lookupBattleTag(s Session,

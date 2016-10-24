@@ -246,7 +246,6 @@ func (b *bot) myUserId(s Session) string {
 }
 
 func (b *bot) presenceHandler(s *discordgo.Session, m *discordgo.PresenceUpdate) {
-	logger.Debugf("presenceHandler isn't implemented yet")
 	return
 }
 

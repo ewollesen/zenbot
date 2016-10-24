@@ -27,6 +27,7 @@ import (
 )
 
 var (
+	mentionRe  = regexp.MustCompile(`<@!?[0-9]+>`)
 	rankUrlRe  = regexp.MustCompile(`/(season-[0-9])/(rank-[0-9])\.png$`)
 	rankLookup = map[string]map[string]string{
 		"season-2": map[string]string{
@@ -51,6 +52,7 @@ var (
 )
 
 type skillRankHandler struct {
+	btags     *BattleTagCache
 	overwatch overwatch.OverwatchAPI
 }
 
@@ -98,8 +100,11 @@ func (sr *skillRankHandler) Help(argv ...string) string {
 	return "lookup the skill rank for the given BattleTag (PC, US only for now)"
 }
 
-func newSkillRankHandler(ow overwatch.OverwatchAPI) DiscordHandler {
+func newSkillRankHandler(btags *BattleTagCache,
+	ow overwatch.OverwatchAPI) *skillRankHandler {
+
 	return &skillRankHandler{
+		btags:     btags,
 		overwatch: ow,
 	}
 }
@@ -121,7 +126,41 @@ func (sr *skillRankHandler) handleSkillRank(s Session,
 func (sr *skillRankHandler) handleTeams(s Session,
 	m *discordgo.MessageCreate) (err error) {
 
-	return sr.replyPartition(s, m, blizzard.FindBattleTags(m.Content))
+	words := strings.Split(m.Content, " ")[1:]
+	btags := blizzard.FindBattleTags(sr.replaceMentions(m.Content))
+	if len(btags) != len(words) {
+		replyPrivate(s, m, "Found only %d BattleTags. "+
+			"Just a heads up!", len(btags))
+	}
+
+	return sr.replyPartition(s, m, btags)
+}
+
+func (sr *skillRankHandler) replaceMentions(text string) string {
+
+	return mentionRe.ReplaceAllStringFunc(text, func(str string) string {
+
+		btag, err := sr.btags.Get(strings.Trim(str, "<!@>"))
+		if err != nil {
+			logger.Warne(err)
+			return str
+		}
+		if btag == "" {
+			logger.Debugf("no btag found in cache for %q",
+				str[2:len(str)-1])
+			return str
+		}
+		logger.Debugf("replacing mention %q with BattleTag %q",
+			str[2:len(str)-2], btag)
+		return btag
+	})
+
+}
+
+func (sr *skillRankHandler) lookupBattleTag(s Session,
+	m *discordgo.MessageCreate) (btag string, err error) {
+
+	return sr.btags.Get(userKey(s, m))
 }
 
 // TODO: DRY up with queueHandler's version

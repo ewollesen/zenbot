@@ -104,7 +104,7 @@ func New(redis_client *redis.Client) *bot {
 	dh := newDebugHandler(btq, btc)
 	b.RegisterCommand("debug", dh)
 
-	srh := newSkillRankHandler(cow)
+	srh := newSkillRankHandler(btc, cow)
 	b.RegisterCommand("sr", srh)
 	b.RegisterCommand("teams", srh)
 

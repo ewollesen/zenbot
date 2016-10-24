@@ -49,10 +49,10 @@ func (b *bot) RegisterCommand(name string, handler DiscordHandler) error {
 
 func (b *bot) handleCommand(s Session, m *discordgo.MessageCreate) error {
 	argv := []string{}
-	if isPrivateMessage(s, m) {
-		argv = strings.Split(m.Content, " ")
-	} else {
+	if strings.HasPrefix(m.Content, *commandPrefix) {
 		argv = strings.Split(m.Content[len(*commandPrefix):], " ")
+	} else {
+		argv = strings.Split(m.Content, " ")
 	}
 	cmd := strings.ToLower(argv[0])
 

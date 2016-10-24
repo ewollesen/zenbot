@@ -81,7 +81,7 @@ func (sr *skillRankHandler) Handle(s Session, m *discordgo.MessageCreate,
 	case "sr":
 		sub_cmd := "help"
 		if len(argv) > 1 {
-			sub_cmd = argv[1]
+			sub_cmd = strings.ToLower(argv[1])
 		}
 		switch sub_cmd {
 		case "help":

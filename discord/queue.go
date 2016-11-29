@@ -105,7 +105,12 @@ func (h *queueHandler) Handle(s Session, m *discordgo.MessageCreate,
 }
 
 func (h *queueHandler) Help(argv ...string) string {
-	return "manipulates the scrimmages queue"
+	term := strings.Join(argv, " ")
+	wrap := func(msg string) string {
+		return fmt.Sprintf("`!%s` - %s. See `!queue help` for more info",
+			term, msg)
+	}
+	return wrap("manipulates the scrimmages queue")
 }
 
 func (h *queueHandler) handleClearUnsafe(s Session,

@@ -16,5 +16,9 @@ package commands
 
 type CommandHandler interface {
 	Handle(args ...string) (string, error)
+	CommandWithHelp
+}
+
+type CommandWithHelp interface {
 	Help(args ...string) string
 }

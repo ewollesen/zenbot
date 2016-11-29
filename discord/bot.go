@@ -21,12 +21,7 @@ import (
 	"sync"
 	"time"
 
-	redis "gopkg.in/redis.v5"
-
 	"github.com/ewollesen/discordgo"
-	"github.com/spacemonkeygo/errors"
-	"github.com/spacemonkeygo/spacelog"
-
 	"github.com/ewollesen/zenbot/cache"
 	memorycache "github.com/ewollesen/zenbot/cache/memory"
 	"github.com/ewollesen/zenbot/cache/rediscache"
@@ -38,6 +33,9 @@ import (
 	"github.com/ewollesen/zenbot/queue"
 	memoryqueue "github.com/ewollesen/zenbot/queue/memory"
 	"github.com/ewollesen/zenbot/queue/redisqueue"
+	"github.com/spacemonkeygo/errors"
+	"github.com/spacemonkeygo/spacelog"
+	redis "gopkg.in/redis.v5"
 )
 
 var (
@@ -74,6 +72,7 @@ func New(redis_client *redis.Client) *bot {
 	}
 
 	b.RegisterCommand("ping", &discordHandler{commands.Pong})
+	b.RegisterCommand("pong", &discordHandler{commands.Bomb})
 
 	var q queue.Queue
 	var c, owc, vbtc cache.Cache
@@ -107,8 +106,27 @@ func New(redis_client *redis.Client) *bot {
 	srh := newSkillRankHandler(btc, cow)
 	b.RegisterCommand("sr", srh)
 	b.RegisterCommand("teams", srh)
+	b.RegisterCommand("help", b.help())
 
 	return b
+}
+
+func (b *bot) help() *discordHandler {
+	f := func() map[string]commands.CommandWithHelp {
+		m := make(map[string]commands.CommandWithHelp)
+		for n, c := range b.command_handlers {
+			// TODO: formalize a way of doing this
+			if n == "debug" || n == "pong" {
+				continue
+			}
+			c2, ok := c.(commands.CommandWithHelp)
+			if ok {
+				m[n] = c2
+			}
+		}
+		return m
+	}
+	return &discordHandler{commands.Help(f)}
 }
 
 func (b *bot) Run(quit chan os.Signal) error {

@@ -34,7 +34,7 @@ type Session interface {
 
 type DiscordHandler interface {
 	Handle(s Session, m *discordgo.MessageCreate, argv ...string) error
-	Help(...string) string
+	commands.CommandWithHelp
 }
 
 type discordHandler struct {

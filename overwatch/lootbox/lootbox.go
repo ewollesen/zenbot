@@ -16,6 +16,7 @@ package lootbox
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -30,6 +31,9 @@ var _ overwatch.OverwatchAPI = (*lootBox)(nil)
 
 var (
 	logger = spacelog.GetLogger()
+
+	addr = flag.String("lootbox.address", "https://api.lootbox.eu",
+		"protocol, host, and port to query")
 )
 
 type lootBox struct {
@@ -121,7 +125,7 @@ func (l *lootBox) buildUrl(platform, region, battle_tag, path string) string {
 	overwatch.CheckPlatform(platform)
 	overwatch.CheckRegion(region)
 
-	return fmt.Sprintf("https://api.lootbox.eu/%s/%s/%s/%s",
+	return fmt.Sprintf("%s/%s/%s/%s/%s", *addr,
 		platform, region, l.escapeBattleTag(battle_tag), path)
 }
 

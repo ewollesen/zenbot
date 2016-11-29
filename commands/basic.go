@@ -14,6 +14,11 @@
 
 package commands
 
+import (
+	"fmt"
+	"strings"
+)
+
 type basicHandler struct {
 	handler func(args ...string) (string, error)
 	help    func(args ...string) string
@@ -35,7 +40,18 @@ func Static(response, help string) CommandHandler {
 			return response, nil
 		},
 		help: func(argv ...string) string {
-			return help
+			return fmt.Sprintf("`!%s` - %s", strings.Join(argv, " "), help)
+		},
+	}
+}
+
+func Simple(responder func(...string) (string, error), help string) CommandHandler {
+	return &basicHandler{
+		handler: func(argv ...string) (string, error) {
+			return responder(argv...)
+		},
+		help: func(argv ...string) string {
+			return fmt.Sprintf("`!%s` - %s", strings.Join(argv, " "), help)
 		},
 	}
 }

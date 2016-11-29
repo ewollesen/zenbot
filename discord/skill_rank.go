@@ -15,6 +15,7 @@
 package discord
 
 import (
+	"fmt"
 	"regexp"
 	"sort"
 	"strings"
@@ -97,7 +98,18 @@ func (sr *skillRankHandler) Handle(s Session, m *discordgo.MessageCreate,
 }
 
 func (sr *skillRankHandler) Help(argv ...string) string {
-	return "lookup the skill rank for the given BattleTag (PC, US only for now)"
+	term := strings.Join(argv, " ")
+	wrap := func(msg string) string {
+		return fmt.Sprintf("`!%s` - %s", term, msg)
+	}
+	switch term {
+	case "sr":
+		return wrap("looks up the skill rank for the given BattleTag (PC, US only for now)")
+	case "teams":
+		return wrap("given a list of BattleTags, divides them into two balanced teams")
+	default:
+		return fmt.Sprintf("no help found for %q", term)
+	}
 }
 
 func newSkillRankHandler(btags *BattleTagCache,

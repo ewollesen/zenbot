@@ -16,10 +16,12 @@ package main
 
 import (
 	"flag"
+	"math/rand"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	redis "gopkg.in/redis.v5"
 
@@ -40,6 +42,7 @@ var (
 )
 
 func main() {
+	rand.Seed(time.Now().Unix())
 	flagfile.Load()
 	spacelog_setup.MustSetup("zenbot")
 

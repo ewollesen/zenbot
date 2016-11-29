@@ -15,6 +15,7 @@
 package overwatch
 
 import (
+	"github.com/ewollesen/zenbot/blizzard"
 	"github.com/spacemonkeygo/errors"
 	"github.com/spacemonkeygo/spacelog"
 )
@@ -88,6 +89,10 @@ type GlobalOverwatch struct {
 
 func (o *GlobalOverwatch) SkillRank(platform, battle_tag string) (
 	sr int, img_url string, err error) {
+
+	if !blizzard.WellFormedBattleTag(battle_tag) {
+		return -1, "", BattleTagInvalid.New(battle_tag)
+	}
 
 	// TODO parallelize
 	for _, region := range Regions {

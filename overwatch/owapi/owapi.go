@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/ewollesen/zenbot/blizzard"
 	"github.com/ewollesen/zenbot/overwatch"
 	"github.com/spacemonkeygo/spacelog"
 )
@@ -57,6 +58,10 @@ type regionData struct {
 
 func (l *owApi) SkillRank(platform, battle_tag string) (
 	sr int, img string, err error) {
+
+	if !blizzard.WellFormedBattleTag(battle_tag) {
+		return -1, "", overwatch.BattleTagInvalid.New(battle_tag)
+	}
 
 	json_bytes, err := l.get("stats", platform, battle_tag)
 	if err != nil {

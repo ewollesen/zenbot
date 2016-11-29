@@ -41,7 +41,7 @@ func New() *blizzardScrape {
 	}
 }
 
-func (b *blizzardScrape) SkillRank(platform, region, battle_tag string) (
+func (b *blizzardScrape) SkillRank(platform, battle_tag string) (
 	sr int, img string, err error) {
 	return -1, "", fmt.Errorf("not implemented")
 }

@@ -40,17 +40,17 @@ func NewCaching(overwatch OverwatchAPI, cache cache.Cache) *cachingOverwatch {
 	}
 }
 
-func (c *cachingOverwatch) SkillRank(platform, region, battle_tag string) (
+func (c *cachingOverwatch) SkillRank(platform, battle_tag string) (
 	sr int, img_url string, err error) {
 
 	cache_hit := true
 	val_bytes, err := c.cache.Fetch(
-		c.key(platform, region, battle_tag, "skill_rank_w_image"),
+		c.key(platform, battle_tag, "skill_rank_w_image"),
 		func() []byte {
 			cache_hit = false
 			logger.Debugf("skill rank cache miss for %q", battle_tag)
 			r, img_url, err := c.OverwatchAPI.SkillRank(
-				platform, region, battle_tag)
+				platform, battle_tag)
 			if err != nil {
 				logger.Errore(err)
 				return nil

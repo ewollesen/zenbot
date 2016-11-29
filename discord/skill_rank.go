@@ -44,7 +44,7 @@ var (
 
 	skillRankHelpMsg = strings.TrimSpace(strings.Join([]string{
 		"Looks up the Skill Rank for a BattleTag. BattleTags are CaSe-SeNsiTiVe! Ranks are cached, and therefore may be slightly out of date.",
-		"`!sr example#1234` - looks up the skill rank for example#1234 (PC, US-only for now)",
+		"`!sr example#1234` - looks up the skill rank for example#1234 (PC only for now)",
 		"`!sr help` - displays this help message",
 	}, "\n"))
 
@@ -88,7 +88,7 @@ func (sr *skillRankHandler) Handle(s Session, m *discordgo.MessageCreate,
 		case "help":
 			reply(s, m, skillRankHelpMsg)
 		default:
-			err = sr.handleSkillRank(s, m, sub_cmd)
+			err = sr.handleSkillRank(s, m, argv[1])
 		}
 	case "teams":
 		err = sr.handleTeams(s, m)
@@ -121,17 +121,38 @@ func newSkillRankHandler(btags *BattleTagCache,
 	}
 }
 
+func (sr *skillRankHandler) lookupDivision(img_url string, rank int) string {
+	switch {
+	case rank < 1500:
+		return "bronze"
+	case rank < 2000:
+		return "silver"
+	case rank < 2500:
+		return "gold"
+	case rank < 3000:
+		return "platinum"
+	case rank < 3500:
+		return "diamond"
+	case rank < 4000:
+		return "master!"
+	case rank >= 4000:
+		return "grandmaster!!!"
+	default:
+		return imageUrlToName(img_url)
+	}
+}
+
 func (sr *skillRankHandler) handleSkillRank(s Session,
 	m *discordgo.MessageCreate, btag string) (err error) {
 
-	rank, img_url, err := sr.overwatch.SkillRank("pc", "us", btag)
+	rank, img_url, err := sr.overwatch.SkillRank(overwatch.PlatformPC, btag)
 	if err != nil {
 		reply(s, m, "Error looking up skill rank for %s "+
 			"(remember, BattleTags are CaSe-SeNsItIvE!)", btag)
 		return err
 	}
 	reply(s, m, "Skill rank for %s: %d (%s).", btag, rank,
-		imageUrlToName(img_url))
+		sr.lookupDivision(img_url, rank))
 	return nil
 }
 
@@ -205,7 +226,7 @@ func partitionBattleTags(ow overwatch.OverwatchAPI, btags []string) (
 
 	// Optimization: parallelize
 	for _, btag := range btags {
-		rank, _, err := ow.SkillRank("pc", "us", btag)
+		rank, _, err := ow.SkillRank(overwatch.PlatformPC, btag)
 		if err != nil {
 			logger.Errore(err)
 			failures++

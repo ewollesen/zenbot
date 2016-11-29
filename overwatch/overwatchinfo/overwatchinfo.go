@@ -23,13 +23,16 @@ import (
 	"strings"
 
 	"github.com/ewollesen/zenbot/overwatch"
+	"github.com/spacemonkeygo/errors"
 	"github.com/spacemonkeygo/spacelog"
 )
 
-var _ overwatch.OverwatchAPI = (*overwatchInfo)(nil)
+var _ overwatch.RegionalOverwatchAPI = (*overwatchInfo)(nil)
 
 var (
 	logger = spacelog.GetLogger()
+
+	Error = errors.NewClass("overwatchinfo")
 )
 
 type overwatchInfo struct {
@@ -51,6 +54,8 @@ type profile struct {
 			RankImg string `json:"rank_img"`
 		} `json:"competitive_play"`
 	} `json:"data"`
+	StatusCode int    `json:"statusCode,omitempty"`
+	Error      string `json:"error,omitempty"`
 }
 
 //curl -X GET --header 'Accept: application/json' 'https://api.overwatchinfo.com/pc/us/PrinceMO-11110/profile'
@@ -67,6 +72,10 @@ func (l *overwatchInfo) SkillRank(platform, region, battle_tag string) (
 	err = json.Unmarshal(json_bytes, profile)
 	if err != nil {
 		return -1, "", err
+	}
+
+	if profile.Error != "" {
+		return -1, "", Error.New(profile.Error)
 	}
 
 	sr64, err := strconv.ParseInt(profile.Data.CompetitivePlay.Rank, 10, 32)

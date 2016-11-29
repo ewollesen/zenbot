@@ -34,7 +34,8 @@ func TestHandleClear(t *testing.T) {
 
 	c := memorycache.New()
 	qh := newQueueHandler(newBattleTagQueue(memoryqueue.New()),
-		NewBattleTagCache(c), mockoverwatch.NewRandom())
+		NewBattleTagCache(c),
+		overwatch.NewGlobal(mockoverwatch.NewRandom()))
 	s := test.mockSession()
 	m := test.testMessage("!queue clear")
 	test.AssertNil(qh.Handle(s, m, "!queue", "clear"))
@@ -361,7 +362,8 @@ type queueTest struct {
 
 func newQueueTest(t *testing.T) (*queueTest, *queueHandler) {
 	qh := newQueueHandler(newBattleTagQueue(memoryqueue.New()),
-		NewBattleTagCache(memorycache.New()), mockoverwatch.NewRandom())
+		NewBattleTagCache(memorycache.New()),
+		overwatch.NewGlobal(mockoverwatch.NewRandom()))
 
 	return &queueTest{
 		discordTest: newDiscordTest(t),

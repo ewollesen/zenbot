@@ -28,12 +28,35 @@ var (
 		errors.NoCaptureStack())
 )
 
+const (
+	RegionUS     = "us"
+	RegionEU     = "eu"
+	RegionKR     = "kr"
+	RegionCN     = "cn"
+	RegionGlobal = "global"
+
+	PlatformPC  = "pc"
+	PlatformPSN = "psn"
+	PlatformXBL = "xbl"
+)
+
+var (
+	Regions   = []string{RegionUS, RegionEU, RegionKR, RegionCN, RegionGlobal}
+	Platforms = []string{PlatformPC, PlatformPSN, PlatformXBL}
+)
+
 type OfficialAPI interface {
 	IsValidBattleTag(platform, region, battle_tag string) (
 		bool, error)
 }
 
 type OverwatchAPI interface {
+	SkillRank(platform, battle_tag string) (
+		sr int, img_url string, err error)
+	OfficialAPI
+}
+
+type RegionalOverwatchAPI interface {
 	SkillRank(platform, region, battle_tag string) (
 		sr int, img_url string, err error)
 	OfficialAPI
@@ -41,7 +64,7 @@ type OverwatchAPI interface {
 
 func CheckPlatform(platform string) {
 	switch platform {
-	case "pc", "psn", "xbl":
+	case PlatformPC, PlatformPSN, PlatformXBL:
 		// no op
 	default:
 		logger.Noticef("continuing with unexpected platform: %q", platform)
@@ -50,7 +73,7 @@ func CheckPlatform(platform string) {
 
 func CheckRegion(region string) {
 	switch region {
-	case "us", "eu", "kr", "cn", "global":
+	case RegionUS, RegionEU, RegionKR, RegionCN, RegionGlobal:
 		// no op
 	default:
 		logger.Noticef("continuing with unexpected region: %q", region)
@@ -58,3 +81,28 @@ func CheckRegion(region string) {
 }
 
 // TOOD: CheckBattleTag
+
+type GlobalOverwatch struct {
+	RegionalOverwatchAPI
+}
+
+func (o *GlobalOverwatch) SkillRank(platform, battle_tag string) (
+	sr int, img_url string, err error) {
+
+	// TODO parallelize
+	for _, region := range Regions {
+		sr, img_url, err =
+			o.RegionalOverwatchAPI.SkillRank(platform, region, battle_tag)
+		if err != nil {
+			logger.Infoe(err)
+			continue
+		}
+		return sr, img_url, err
+	}
+
+	return -1, "", err
+}
+
+func NewGlobal(regional RegionalOverwatchAPI) *GlobalOverwatch {
+	return &GlobalOverwatch{regional}
+}

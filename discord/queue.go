@@ -191,7 +191,7 @@ func (h *queueHandler) lookupNickOrUsername(s Session,
 
 func (h *queueHandler) lookupSkillRank(btag string) {
 	go func(btag string) {
-		_, _, err := h.overwatch.SkillRank("pc", "us", btag)
+		_, _, err := h.overwatch.SkillRank(overwatch.PlatformPC, btag)
 		logger.Warne(err)
 	}(btag)
 }

@@ -18,38 +18,40 @@ import (
 	"fmt"
 	"math/rand"
 	"sync"
+
+	"github.com/ewollesen/zenbot/overwatch"
 )
 
 var (
 	TestBattleTags = []string{
-		"testuser1#1111",
-		"testuser2#2222",
-		"testuser3#3333",
-		"testuser4#4444",
-		"testuser5#5555",
-		"testuser6#6666",
-		"testuser7#7777",
-		"testuser8#8888",
-		"testuser9#9999",
-		"testuser10#1010",
-		"testuser11#1111",
-		"testuser12#1212",
+		"us/testuser1#1111",
+		"us/testuser2#2222",
+		"us/testuser3#3333",
+		"us/testuser4#4444",
+		"us/testuser5#5555",
+		"us/testuser6#6666",
+		"us/testuser7#7777",
+		"us/testuser8#8888",
+		"us/testuser9#9999",
+		"us/testuser10#1010",
+		"us/testuser11#1111",
+		"us/testuser12#1212",
 	}
 	testBattleTagsTeamOne = []string{
-		"testuser9#9999",
-		"testuser8#8888",
-		"testuser7#7777",
-		"testuser6#6666",
-		"testuser4#4444",
-		"testuser11#1111",
+		"us/testuser9#9999",
+		"us/testuser8#8888",
+		"us/testuser7#7777",
+		"us/testuser6#6666",
+		"us/testuser4#4444",
+		"us/testuser11#1111",
 	}
 	testBattleTagsTeamTwo = []string{
-		"testuser5#5555",
-		"testuser3#3333",
-		"testuser2#2222",
-		"testuser12#1212",
-		"testuser1#1111",
-		"testuser10#1010",
+		"us/testuser5#5555",
+		"us/testuser3#3333",
+		"us/testuser2#2222",
+		"us/testuser12#1212",
+		"us/testuser1#1111",
+		"us/testuser10#1010",
 	}
 )
 
@@ -57,37 +59,55 @@ type mockOverwatch struct {
 	bad_btags []string
 }
 
+var _ overwatch.RegionalOverwatchAPI = (*mockOverwatch)(nil)
+
 func (ow *mockOverwatch) SkillRank(platform, region, btag string) (
 	rank int, img_url string, err error) {
 
-	switch btag {
-	case "testuser1#1111":
+	switch region + "/" + btag {
+	case "us/testuser1#1111":
 		return 2000, "", nil
-	case "testuser2#2222":
+	case "us/testuser2#2222":
 		return 2056, "", nil
-	case "testuser3#3333":
+	case "us/testuser3#3333":
 		return 3056, "", nil
-	case "testuser4#4444":
+	case "us/testuser4#4444":
 		return 4056, "", nil
-	case "testuser5#5555":
+	case "us/testuser5#5555":
 		return 3656, "", nil
-	case "testuser6#6666":
+	case "us/testuser6#6666":
 		return 2468, "", nil
-	case "testuser7#7777":
+	case "us/testuser7#7777":
 		return 2562, "", nil
-	case "testuser8#8888":
+	case "us/testuser8#8888":
 		return 1265, "", nil
-	case "testuser9#9999":
+	case "us/testuser9#9999":
 		return 3129, "", nil
-	case "testuser10#1010":
+	case "us/testuser10#1010":
 		return 2654, "", nil
-	case "testuser11#1111":
+	case "us/testuser11#1111":
 		return 2296, "", nil
-	case "testuser12#1212":
+	case "us/testuser12#1212":
 		return 2307, "", nil
+	case "eu/testuser13#1313":
+		return 3183, "", nil
+	case "eu/foundeu#2222":
+		return 4998, "", nil
+	case "us/foundus#1111":
+		return 4999, "", nil
+	case "us/foundeu#2222":
+		return -1, "", overwatch.BattleTagNotFound.New("")
+	case "eu/foundus#1111":
+		return -1, "", overwatch.BattleTagNotFound.New("")
 	default:
 		return -1, "", fmt.Errorf("invalid battle tag")
 	}
+}
+
+func (ow *mockOverwatch) SkillRankGlobal(platform, btag string) (
+	rank int, img_url string, err error) {
+
+	return ow.SkillRank(platform, "us", btag)
 }
 
 func (ow *mockOverwatch) IsValidBattleTag(platform, region, btag string) (
@@ -122,10 +142,10 @@ func (ow *mockRandomOverwatch) SkillRank(platform, region, btag string) (
 	ow.ranks_mu.Lock()
 	defer ow.ranks_mu.Unlock()
 
-	rank, ok := ow.ranks[btag]
+	rank, ok := ow.ranks[region+"/"+btag]
 	if !ok {
 		rank = int(rand.NormFloat64()*500 + 2500)
-		ow.ranks[btag] = rank
+		ow.ranks[region+"/"+btag] = rank
 	}
 	return rank, "", nil
 }

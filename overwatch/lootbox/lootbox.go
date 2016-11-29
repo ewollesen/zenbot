@@ -24,13 +24,16 @@ import (
 	"strings"
 
 	"github.com/ewollesen/zenbot/overwatch"
+	"github.com/spacemonkeygo/errors"
 	"github.com/spacemonkeygo/spacelog"
 )
 
-var _ overwatch.OverwatchAPI = (*lootBox)(nil)
+var _ overwatch.RegionalOverwatchAPI = (*lootBox)(nil)
 
 var (
 	logger = spacelog.GetLogger()
+
+	Error = errors.NewClass("lootbox")
 
 	addr = flag.String("lootbox.address", "https://api.lootbox.eu",
 		"protocol, host, and port to query")
@@ -45,12 +48,14 @@ func New(official overwatch.OfficialAPI) *lootBox {
 }
 
 type profile struct {
-	Data struct {
-		Competitive struct {
-			Rank    string `json:"rank"`
-			RankImg string `json:"rank_img"`
-		} `json:"competitive"`
-	} `json:"data"`
+	Data *struct {
+		Competitive *struct {
+			Rank    *string `json:"rank,omitempty"`
+			RankImg *string `json:"rank_img,omitempty"`
+		} `json:"competitive,omitempty"`
+	} `json:"data,omitempty"`
+	StatusCode int    `json:"statusCode,omitempty"`
+	Error      string `json:"error,omitempty"`
 }
 
 // curl -X GET --header 'Accept: application/json' 'https://api.lootbox.eu/pc/us/encoded-1148/profile'
@@ -82,6 +87,12 @@ type profile struct {
 // 	}
 // }
 
+// curl -s 'https://api.lootbox.eu/pc/us/encoded-1149/profile' | jq .
+// 	{
+// 	"statusCode": 404,
+// 	"error": "Found no user with the BattleTag: encoded-1149"
+// }
+
 func (l *lootBox) SkillRank(platform, region, battle_tag string) (
 	sr int, img string, err error) {
 
@@ -97,12 +108,20 @@ func (l *lootBox) SkillRank(platform, region, battle_tag string) (
 		return -1, "", err
 	}
 
-	sr64, err := strconv.ParseInt(profile.Data.Competitive.Rank, 10, 32)
+	if profile.Error != "" {
+		return -1, "", Error.New(profile.Error)
+	}
+
+	if rankNotFound(profile) {
+		return -1, "", overwatch.BattleTagNotFound.New(battle_tag)
+	}
+
+	sr64, err := strconv.ParseInt(*profile.Data.Competitive.Rank, 10, 32)
 	if err != nil {
 		return -1, "", err
 	}
 
-	return int(sr64), profile.Data.Competitive.RankImg, nil
+	return int(sr64), *profile.Data.Competitive.RankImg, nil
 }
 
 func (l *lootBox) get(path string, platform, region, battle_tag string) (
@@ -133,4 +152,11 @@ func (l *lootBox) IsValidBattleTag(platform, region, battle_tag string) (
 	bool, error) {
 
 	return l.official.IsValidBattleTag(platform, region, battle_tag)
+}
+
+func rankNotFound(pr *profile) bool {
+	return pr.Data == nil ||
+		pr.Data.Competitive == nil ||
+		pr.Data.Competitive.Rank == nil ||
+		*pr.Data.Competitive.Rank == ""
 }

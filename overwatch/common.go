@@ -84,4 +84,25 @@ func CheckRegion(region string) {
 	}
 }
 
+func RankToDivision(rank int) string {
+	switch {
+	case rank < 1500:
+		return "bronze"
+	case rank < 2000:
+		return "silver"
+	case rank < 2500:
+		return "gold"
+	case rank < 3000:
+		return "platinum"
+	case rank < 3500:
+		return "diamond"
+	case rank < 4000:
+		return "master!"
+	case rank >= 4000:
+		return "grandmaster!!!"
+	default:
+		return "unknown"
+	}
+}
+
 // TOOD: CheckBattleTag

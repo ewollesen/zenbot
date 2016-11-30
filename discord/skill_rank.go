@@ -94,27 +94,6 @@ func newSkillRankHandler(btags *BattleTagCache,
 	}
 }
 
-func (sr *skillRankHandler) lookupDivision(rank int) string {
-	switch {
-	case rank < 1500:
-		return "bronze"
-	case rank < 2000:
-		return "silver"
-	case rank < 2500:
-		return "gold"
-	case rank < 3000:
-		return "platinum"
-	case rank < 3500:
-		return "diamond"
-	case rank < 4000:
-		return "master!"
-	case rank >= 4000:
-		return "grandmaster!!!"
-	default:
-		return "unknown"
-	}
-}
-
 func (sr *skillRankHandler) handleSkillRank(s Session,
 	m *discordgo.MessageCreate, btag string) (err error) {
 
@@ -131,7 +110,7 @@ func (sr *skillRankHandler) handleSkillRank(s Session,
 		return err
 	}
 	reply(s, m, "Skill rank for %s: %d (%s).", btag, rank,
-		sr.lookupDivision(rank))
+		overwatch.RankToDivision(rank))
 	return nil
 }
 

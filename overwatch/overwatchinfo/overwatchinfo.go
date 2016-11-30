@@ -50,8 +50,7 @@ func New(official overwatch.OfficialAPI) *overwatchInfo {
 type profile struct {
 	Data struct {
 		CompetitivePlay struct {
-			Rank    string `json:"rank"`
-			RankImg string `json:"rank_img"`
+			Rank string `json:"rank"`
 		} `json:"competitive_play"`
 	} `json:"data"`
 	StatusCode int    `json:"statusCode,omitempty"`
@@ -60,30 +59,30 @@ type profile struct {
 
 //curl -X GET --header 'Accept: application/json' 'https://api.overwatchinfo.com/pc/us/PrinceMO-11110/profile'
 func (l *overwatchInfo) SkillRank(platform, region, battle_tag string) (
-	sr int, img string, err error) {
+	sr int, err error) {
 
 	json_bytes, err := l.get("profile", platform, region, battle_tag)
 	if err != nil {
-		return -1, "", err
+		return -1, err
 	}
 	logger.Debugf("raw json: %s", string(json_bytes))
 
 	profile := &profile{}
 	err = json.Unmarshal(json_bytes, profile)
 	if err != nil {
-		return -1, "", err
+		return -1, err
 	}
 
 	if profile.Error != "" {
-		return -1, "", Error.New(profile.Error)
+		return -1, Error.New(profile.Error)
 	}
 
 	sr64, err := strconv.ParseInt(profile.Data.CompetitivePlay.Rank, 10, 32)
 	if err != nil {
-		return -1, "", err
+		return -1, err
 	}
 
-	return int(sr64), profile.Data.CompetitivePlay.RankImg, nil
+	return int(sr64), nil
 }
 
 func (l *overwatchInfo) get(path string, platform, region, battle_tag string) (

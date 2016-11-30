@@ -20,7 +20,8 @@ import (
 )
 
 var (
-	logger           = spacelog.GetLogger()
+	logger = spacelog.GetLogger()
+
 	Error            = errors.NewClass("overwatch")
 	BattleTagInvalid = Error.NewClass("BattleTag invalid",
 		errors.NoCaptureStack())
@@ -40,6 +41,8 @@ const (
 	PlatformPC  = "pc"
 	PlatformPSN = "psn"
 	PlatformXBL = "xbl"
+
+	SkillRankError = -1
 )
 
 var (
@@ -53,14 +56,12 @@ type OfficialAPI interface {
 }
 
 type OverwatchAPI interface {
-	SkillRank(platform, battle_tag string) (
-		sr int, img_url string, err error)
+	SkillRank(platform, battle_tag string) (sr int, err error)
 	OfficialAPI
 }
 
 type RegionalOverwatchAPI interface {
-	SkillRank(platform, region, battle_tag string) (
-		sr int, img_url string, err error)
+	SkillRank(platform, region, battle_tag string) (sr int, err error)
 	OfficialAPI
 }
 
@@ -69,7 +70,8 @@ func CheckPlatform(platform string) {
 	case PlatformPC, PlatformPSN, PlatformXBL:
 		// no op
 	default:
-		logger.Noticef("continuing with unexpected platform: %q", platform)
+		logger.Noticef("continuing with unexpected platform: %q",
+			platform)
 	}
 }
 

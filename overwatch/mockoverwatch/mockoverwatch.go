@@ -62,55 +62,55 @@ type mockOverwatch struct {
 var _ overwatch.RegionalOverwatchAPI = (*mockOverwatch)(nil)
 
 func (ow *mockOverwatch) SkillRank(platform, region, btag string) (
-	rank int, img_url string, err error) {
+	rank int, err error) {
 
 	switch region + "/" + btag {
 	case "us/testuser1#1111":
-		return 2000, "", nil
+		return 2000, nil
 	case "us/testuser2#2222":
-		return 2056, "", nil
+		return 2056, nil
 	case "us/testuser3#3333":
-		return 3056, "", nil
+		return 3056, nil
 	case "us/testuser4#4444":
-		return 4056, "", nil
+		return 4056, nil
 	case "us/testuser5#5555":
-		return 3656, "", nil
+		return 3656, nil
 	case "us/testuser6#6666":
-		return 2468, "", nil
+		return 2468, nil
 	case "us/testuser7#7777":
-		return 2562, "", nil
+		return 2562, nil
 	case "us/testuser8#8888":
-		return 1265, "", nil
+		return 1265, nil
 	case "us/testuser9#9999":
-		return 3129, "", nil
+		return 3129, nil
 	case "us/testuser10#1010":
-		return 2654, "", nil
+		return 2654, nil
 	case "us/testuser11#1111":
-		return 2296, "", nil
+		return 2296, nil
 	case "us/testuser12#1212":
-		return 2307, "", nil
+		return 2307, nil
 	case "eu/testuser13#1313":
-		return 3183, "", nil
+		return 3183, nil
 	case "eu/foundeu#2222":
-		return 4998, "", nil
+		return 4998, nil
 	case "us/foundus#1111":
-		return 4999, "", nil
+		return 4999, nil
 	case "us/foundeu#2222":
-		return -1, "", overwatch.BattleTagNotFound.New(btag)
+		return -1, overwatch.BattleTagNotFound.New(btag)
 	case "eu/foundus#1111":
-		return -1, "", overwatch.BattleTagNotFound.New(btag)
+		return -1, overwatch.BattleTagNotFound.New(btag)
 	case "us/notfound#1234", "eu/notfound#1234", "kr/notfound#1234",
 		"cn/notfound#1234", "global/notfound#1234":
-		return -1, "", overwatch.BattleTagNotFound.New(btag)
+		return -1, overwatch.BattleTagNotFound.New(btag)
 	case "us/unranked#3333":
-		return -1, "", overwatch.BattleTagUnranked.New(btag)
+		return -1, overwatch.BattleTagUnranked.New(btag)
 	default:
-		return -1, "", fmt.Errorf("invalid battle tag")
+		return -1, fmt.Errorf("invalid battle tag")
 	}
 }
 
 func (ow *mockOverwatch) SkillRankGlobal(platform, btag string) (
-	rank int, img_url string, err error) {
+	rank int, err error) {
 
 	return ow.SkillRank(platform, "us", btag)
 }
@@ -142,7 +142,7 @@ type mockRandomOverwatch struct {
 }
 
 func (ow *mockRandomOverwatch) SkillRank(platform, region, btag string) (
-	rank int, img_url string, err error) {
+	rank int, err error) {
 
 	ow.ranks_mu.Lock()
 	defer ow.ranks_mu.Unlock()
@@ -152,7 +152,7 @@ func (ow *mockRandomOverwatch) SkillRank(platform, region, btag string) (
 		rank = int(rand.NormFloat64()*500 + 2500)
 		ow.ranks[region+"/"+btag] = rank
 	}
-	return rank, "", nil
+	return rank, nil
 }
 
 func NewRandom() *mockRandomOverwatch {

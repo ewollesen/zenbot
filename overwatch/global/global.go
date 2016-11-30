@@ -29,24 +29,25 @@ type GlobalOverwatch struct {
 }
 
 func (o *GlobalOverwatch) SkillRank(platform, battle_tag string) (
-	sr int, img_url string, err error) {
+	sr int, err error) {
 
 	if !blizzard.WellFormedBattleTag(battle_tag) {
-		return -1, "", overwatch.BattleTagInvalid.New(battle_tag)
+		return overwatch.SkillRankError,
+			overwatch.BattleTagInvalid.New(battle_tag)
 	}
 
 	// TODO parallelize
 	for _, region := range overwatch.Regions {
-		sr, img_url, err =
-			o.RegionalOverwatchAPI.SkillRank(platform, region, battle_tag)
+		sr, err = o.RegionalOverwatchAPI.SkillRank(platform, region,
+			battle_tag)
 		if err != nil {
 			logger.Infoe(err)
 			continue
 		}
-		return sr, img_url, err
+		return sr, err
 	}
 
-	return -1, "", err
+	return overwatch.SkillRankError, err
 }
 
 func New(regional overwatch.RegionalOverwatchAPI) *GlobalOverwatch {

@@ -47,8 +47,7 @@ func New(official overwatch.OfficialAPI, host string) *lootBox {
 type profile struct {
 	Data *struct {
 		Competitive *struct {
-			Rank    *string `json:"rank,omitempty"`
-			RankImg *string `json:"rank_img,omitempty"`
+			Rank *string `json:"rank,omitempty"`
 		} `json:"competitive,omitempty"`
 	} `json:"data,omitempty"`
 	StatusCode *int    `json:"statusCode,omitempty"`
@@ -91,38 +90,38 @@ type profile struct {
 // }
 
 func (l *lootBox) SkillRank(platform, region, battle_tag string) (
-	sr int, img string, err error) {
+	sr int, err error) {
 
 	json_bytes, err := l.get("profile", platform, region, battle_tag)
 	if err != nil {
-		return -1, "", err
+		return overwatch.SkillRankError, err
 	}
 	logger.Debugf("raw json: %s", string(json_bytes))
 
 	profile := &profile{}
 	err = json.Unmarshal(json_bytes, profile)
 	if err != nil {
-		return -1, "", err
+		return overwatch.SkillRankError, err
 	}
 
 	if profile.Error != nil {
 		if profile.StatusCode != nil &&
 			*profile.StatusCode == http.StatusNotFound {
-			return -1, "", overwatch.BattleTagNotFound.New(battle_tag)
+			return overwatch.SkillRankError, overwatch.BattleTagNotFound.New(battle_tag)
 		}
-		return -1, "", Error.New(*profile.Error)
+		return overwatch.SkillRankError, Error.New(*profile.Error)
 	}
 
 	if unranked(profile) {
-		return -1, "", overwatch.BattleTagUnranked.New(battle_tag)
+		return overwatch.SkillRankError, overwatch.BattleTagUnranked.New(battle_tag)
 	}
 
 	sr64, err := strconv.ParseInt(*profile.Data.Competitive.Rank, 10, 32)
 	if err != nil {
-		return -1, "", err
+		return overwatch.SkillRankError, err
 	}
 
-	return int(sr64), *profile.Data.Competitive.RankImg, nil
+	return int(sr64), nil
 }
 
 func (l *lootBox) get(path string, platform, region, battle_tag string) (

@@ -62,22 +62,22 @@ type regionData struct {
 }
 
 func (l *owApi) SkillRank(platform, battle_tag string) (
-	sr int, img string, err error) {
+	sr int, err error) {
 
 	if !blizzard.WellFormedBattleTag(battle_tag) {
-		return -1, "", overwatch.BattleTagInvalid.New(battle_tag)
+		return overwatch.SkillRankError, overwatch.BattleTagInvalid.New(battle_tag)
 	}
 
 	json_bytes, err := l.get("stats", platform, battle_tag)
 	if err != nil {
-		return -1, "", err
+		return overwatch.SkillRankError, err
 	}
 	logger.Debugf("raw json: %s", string(json_bytes))
 
 	stats := &stats{}
 	err = json.Unmarshal(json_bytes, stats)
 	if err != nil {
-		return -1, "", err
+		return overwatch.SkillRankError, err
 	}
 
 	var found bool
@@ -87,15 +87,15 @@ func (l *owApi) SkillRank(platform, battle_tag string) (
 		found = found || f
 		if sr > 0 {
 			logger.Infof("found %s's SR in region %s", battle_tag, region)
-			return sr, "", nil
+			return sr, nil
 		}
 	}
 
 	if found {
-		return -1, "", overwatch.BattleTagUnranked.New(battle_tag)
+		return overwatch.SkillRankError, overwatch.BattleTagUnranked.New(battle_tag)
 	}
 
-	return -1, "", overwatch.BattleTagNotFound.New(battle_tag)
+	return overwatch.SkillRankError, overwatch.BattleTagNotFound.New(battle_tag)
 }
 
 func findRank(stats *stats, region string) (int, bool) {
@@ -117,14 +117,14 @@ func findRank(stats *stats, region string) (int, bool) {
 
 	if rd == nil {
 		logger.Debugf("no data in %s", region)
-		return -1, false
+		return overwatch.SkillRankError, false
 	}
 
 	if rd.Stats.Competitive == nil ||
 		rd.Stats.Competitive.OverallStats == nil ||
 		rd.Stats.Competitive.OverallStats.CompRank == nil {
 		logger.Debugf("unranked in %s", region)
-		return -1, true
+		return overwatch.SkillRankError, true
 	}
 
 	return *rd.Stats.Competitive.OverallStats.CompRank, true

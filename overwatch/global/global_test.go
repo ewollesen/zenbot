@@ -50,13 +50,13 @@ func TestSkillRankNotFound(t *testing.T) {
 }
 
 func (t *globalTest) AssertSR(btag string, expected int) {
-	sr, _, err := t.gow.SkillRank(overwatch.PlatformPC, btag)
+	sr, err := t.gow.SkillRank(overwatch.PlatformPC, btag)
 	t.AssertEqual(sr, expected)
 	t.AssertNil(err)
 }
 
 func (t *globalTest) AssertNotFound(btag string) {
-	sr, _, err := t.gow.SkillRank(overwatch.PlatformPC, btag)
+	sr, err := t.gow.SkillRank(overwatch.PlatformPC, btag)
 	t.AssertErrorContainedBy(err, overwatch.BattleTagNotFound)
 	t.AssertEqual(sr, -1)
 }

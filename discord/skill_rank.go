@@ -28,19 +28,7 @@ import (
 )
 
 var (
-	mentionRe  = regexp.MustCompile(`<@!?[0-9]+>`)
-	rankUrlRe  = regexp.MustCompile(`/(season-[0-9])/(rank-[0-9])\.png$`)
-	rankLookup = map[string]map[string]string{
-		"season-2": map[string]string{
-			"rank-1": "bronze",
-			"rank-2": "silver",
-			"rank-3": "gold",
-			"rank-4": "platinum",
-			"rank-5": "diamond",
-			"rank-6": "master!",
-			"rank-7": "grandmaster!!!",
-		},
-	}
+	mentionRe = regexp.MustCompile(`<@!?[0-9]+>`)
 
 	skillRankHelpMsg = strings.TrimSpace(strings.Join([]string{
 		"Looks up the Skill Rank for a BattleTag. BattleTags are CaSe-SeNsiTiVe! Ranks are cached, and therefore may be slightly out of date.",
@@ -58,21 +46,6 @@ type skillRankHandler struct {
 }
 
 var _ DiscordHandler = (*skillRankHandler)(nil)
-
-func imageUrlToName(img_url string) string {
-	matches := rankUrlRe.FindStringSubmatch(img_url)
-	if len(matches) != 3 {
-		logger.Debugf("expected 3 matches for rank img lookup, got: %d",
-			len(matches))
-		return "unknown"
-	}
-
-	name := rankLookup[matches[1]][matches[2]]
-	if name == "" {
-		return "unknown"
-	}
-	return name
-}
 
 func (sr *skillRankHandler) Handle(s Session, m *discordgo.MessageCreate,
 	argv ...string) (err error) {
@@ -121,7 +94,7 @@ func newSkillRankHandler(btags *BattleTagCache,
 	}
 }
 
-func (sr *skillRankHandler) lookupDivision(img_url string, rank int) string {
+func (sr *skillRankHandler) lookupDivision(rank int) string {
 	switch {
 	case rank < 1500:
 		return "bronze"
@@ -138,14 +111,14 @@ func (sr *skillRankHandler) lookupDivision(img_url string, rank int) string {
 	case rank >= 4000:
 		return "grandmaster!!!"
 	default:
-		return imageUrlToName(img_url)
+		return "unknown"
 	}
 }
 
 func (sr *skillRankHandler) handleSkillRank(s Session,
 	m *discordgo.MessageCreate, btag string) (err error) {
 
-	rank, img_url, err := sr.overwatch.SkillRank(overwatch.PlatformPC, btag)
+	rank, err := sr.overwatch.SkillRank(overwatch.PlatformPC, btag)
 	if err != nil {
 		if overwatch.BattleTagUnranked.Contains(err) {
 			reply(s, m, "Skill rank for %s: Unranked. "+
@@ -158,7 +131,7 @@ func (sr *skillRankHandler) handleSkillRank(s Session,
 		return err
 	}
 	reply(s, m, "Skill rank for %s: %d (%s).", btag, rank,
-		sr.lookupDivision(img_url, rank))
+		sr.lookupDivision(rank))
 	return nil
 }
 
@@ -232,7 +205,7 @@ func partitionBattleTags(ow overwatch.OverwatchAPI, btags []string) (
 
 	// Optimization: parallelize
 	for _, btag := range btags {
-		rank, _, err := ow.SkillRank(overwatch.PlatformPC, btag)
+		rank, err := ow.SkillRank(overwatch.PlatformPC, btag)
 		if err != nil {
 			logger.Errore(err)
 			failures++

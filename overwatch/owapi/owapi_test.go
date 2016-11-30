@@ -105,19 +105,19 @@ func (t *owApiTest) Close() {
 }
 
 func (t *owApiTest) AssertSR(btag string, expected int) {
-	sr, _, err := t.gow.SkillRank(overwatch.PlatformPC, btag)
+	sr, err := t.gow.SkillRank(overwatch.PlatformPC, btag)
 	t.AssertEqual(sr, expected)
 	t.AssertNil(err)
 }
 
 func (t *owApiTest) AssertNotFound(btag string) {
-	sr, _, err := t.gow.SkillRank(overwatch.PlatformPC, btag)
+	sr, err := t.gow.SkillRank(overwatch.PlatformPC, btag)
 	t.AssertErrorContainedBy(err, overwatch.BattleTagNotFound)
-	t.AssertEqual(sr, -1)
+	t.AssertEqual(sr, overwatch.SkillRankError)
 }
 
 func (t *owApiTest) AssertUnranked(btag string) {
-	sr, _, err := t.gow.SkillRank(overwatch.PlatformPC, btag)
+	sr, err := t.gow.SkillRank(overwatch.PlatformPC, btag)
 	t.AssertErrorContainedBy(err, overwatch.BattleTagUnranked)
-	t.AssertEqual(sr, -1)
+	t.AssertEqual(sr, overwatch.SkillRankError)
 }

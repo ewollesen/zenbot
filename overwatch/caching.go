@@ -29,8 +29,7 @@ type cachingOverwatch struct {
 }
 
 type skillRankBlob struct {
-	Rank     int    `json:"rank"`
-	ImageUrl string `json:"image_url"`
+	Rank int `json:"rank"`
 }
 
 func NewCaching(overwatch OverwatchAPI, cache cache.Cache) *cachingOverwatch {
@@ -41,17 +40,16 @@ func NewCaching(overwatch OverwatchAPI, cache cache.Cache) *cachingOverwatch {
 }
 
 func (c *cachingOverwatch) SkillRank(platform, battle_tag string) (
-	sr int, img_url string, err error) {
+	sr int, err error) {
 
 	cache_hit := true
 	var inner_err error
 	val_bytes, err := c.cache.Fetch(
-		c.key(platform, battle_tag, "skill_rank_w_image"),
+		c.key(platform, battle_tag, "skillRank"),
 		func() []byte {
 			cache_hit = false
 			logger.Debugf("skill rank cache miss for %q", battle_tag)
-			r, img_url, err := c.OverwatchAPI.SkillRank(
-				platform, battle_tag)
+			r, err := c.OverwatchAPI.SkillRank(platform, battle_tag)
 			if err != nil {
 				logger.Errore(err)
 				if BattleTagUnranked.Contains(err) {
@@ -59,8 +57,7 @@ func (c *cachingOverwatch) SkillRank(platform, battle_tag string) (
 				}
 				return nil
 			}
-			r_bytes, err := json.Marshal(&skillRankBlob{
-				Rank: r, ImageUrl: img_url})
+			r_bytes, err := json.Marshal(&skillRankBlob{Rank: r})
 			if err != nil {
 				logger.Errore(err)
 				return nil
@@ -70,10 +67,10 @@ func (c *cachingOverwatch) SkillRank(platform, battle_tag string) (
 		})
 	logger.Debugf("inner_err: %+v", inner_err)
 	if inner_err != nil && BattleTagUnranked.Contains(inner_err) {
-		return -1, "", inner_err
+		return SkillRankError, inner_err
 	}
 	if err != nil {
-		return -1, "", err
+		return SkillRankError, err
 	}
 	if cache_hit {
 		logger.Debugf("skill rank cache hit for %q", battle_tag)
@@ -82,10 +79,10 @@ func (c *cachingOverwatch) SkillRank(platform, battle_tag string) (
 	blob := &skillRankBlob{}
 	err = json.Unmarshal(val_bytes, blob)
 	if err != nil {
-		return -1, "", err
+		return SkillRankError, err
 	}
 
-	return blob.Rank, blob.ImageUrl, nil
+	return blob.Rank, nil
 }
 
 func (c *cachingOverwatch) key(pieces ...string) string {

@@ -51,8 +51,7 @@ func foundResponse(sr int) string {
 {
   "data": {
     "competitive": {
-      "rank": "%d",
-      "rank_img": "not specified"
+      "rank": "%d"
     }
   }
 }`, sr)
@@ -63,8 +62,7 @@ func foundResponseUnranked() string {
 {
   "data": {
     "competitive": {
-      "rank": null,
-      "rank_img": null
+      "rank": null
     }
   }
 }`)
@@ -102,19 +100,19 @@ func (t *lootBoxTest) Close() {
 }
 
 func (t *lootBoxTest) AssertSR(region, btag string, expected int) {
-	sr, _, err := t.gow.SkillRank(overwatch.PlatformPC, region, btag)
+	sr, err := t.gow.SkillRank(overwatch.PlatformPC, region, btag)
 	t.AssertEqual(sr, expected)
 	t.AssertNil(err)
 }
 
 func (t *lootBoxTest) AssertNotFound(region, btag string) {
-	sr, _, err := t.gow.SkillRank(overwatch.PlatformPC, region, btag)
+	sr, err := t.gow.SkillRank(overwatch.PlatformPC, region, btag)
 	t.AssertErrorContainedBy(err, overwatch.BattleTagNotFound)
-	t.AssertEqual(sr, -1)
+	t.AssertEqual(sr, overwatch.SkillRankError)
 }
 
 func (t *lootBoxTest) AssertUnranked(region, btag string) {
-	sr, _, err := t.gow.SkillRank(overwatch.PlatformPC, region, btag)
+	sr, err := t.gow.SkillRank(overwatch.PlatformPC, region, btag)
 	t.AssertErrorContainedBy(err, overwatch.BattleTagUnranked)
-	t.AssertEqual(sr, -1)
+	t.AssertEqual(sr, overwatch.SkillRankError)
 }

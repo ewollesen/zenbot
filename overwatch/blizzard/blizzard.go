@@ -42,8 +42,8 @@ func New() *blizzardScrape {
 }
 
 func (b *blizzardScrape) SkillRank(platform, battle_tag string) (
-	sr int, img string, err error) {
-	return -1, "", fmt.Errorf("not implemented")
+	sr int, err error) {
+	return overwatch.SkillRankError, fmt.Errorf("not implemented")
 }
 
 func (b *blizzardScrape) IsValidBattleTag(platform, region, battle_tag string) (

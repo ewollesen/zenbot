@@ -43,9 +43,11 @@ func New(official overwatch.OfficialAPI) *owApi {
 }
 
 type stats struct {
-	US *regionData `json:"us"`
-	EU *regionData `json:"eu"`
-	KR *regionData `json:"kr"`
+	US     *regionData `json:"us,omitempty"`
+	EU     *regionData `json:"eu,omitempty"`
+	KR     *regionData `json:"kr,omitempty"`
+	CN     *regionData `json:"cn,omitempty"`
+	Global *regionData `json:"global,omitempty"`
 }
 
 type regionData struct {
@@ -89,7 +91,7 @@ func (l *owApi) SkillRank(platform, battle_tag string) (
 	}
 
 	if found {
-		return -1, "", overwatch.BattleTagUnrated.New(battle_tag)
+		return -1, "", overwatch.BattleTagUnranked.New(battle_tag)
 	}
 
 	return -1, "", overwatch.BattleTagNotFound.New(battle_tag)
@@ -102,9 +104,13 @@ func findRank(stats *stats, region string) (int, bool) {
 		rd = stats.EU
 	case overwatch.RegionKR:
 		rd = stats.KR
-	case overwatch.RegionUS:
-		fallthrough
+	case overwatch.RegionCN:
+		rd = stats.CN
+	case overwatch.RegionGlobal:
+		rd = stats.Global
 	default:
+		fallthrough
+	case overwatch.RegionUS:
 		rd = stats.US
 	}
 
@@ -116,7 +122,7 @@ func findRank(stats *stats, region string) (int, bool) {
 	if rd.Stats.Competitive == nil ||
 		rd.Stats.Competitive.OverallStats == nil ||
 		rd.Stats.Competitive.OverallStats.CompRank == nil {
-		logger.Debugf("unrated in %s", region)
+		logger.Debugf("unranked in %s", region)
 		return -1, true
 	}
 

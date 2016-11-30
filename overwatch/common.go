@@ -27,7 +27,7 @@ var (
 		errors.NoCaptureStack())
 	BattleTagNotFound = Error.NewClass("no BattleTag found",
 		errors.NoCaptureStack())
-	BattleTagUnrated = Error.NewClass("no skill rating found",
+	BattleTagUnranked = Error.NewClass("no skill ranking found",
 		errors.NoCaptureStack())
 )
 

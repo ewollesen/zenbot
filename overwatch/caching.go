@@ -54,7 +54,7 @@ func (c *cachingOverwatch) SkillRank(platform, battle_tag string) (
 				platform, battle_tag)
 			if err != nil {
 				logger.Errore(err)
-				if BattleTagUnrated.Contains(err) {
+				if BattleTagUnranked.Contains(err) {
 					inner_err = err
 				}
 				return nil
@@ -69,7 +69,7 @@ func (c *cachingOverwatch) SkillRank(platform, battle_tag string) (
 			return r_bytes
 		})
 	logger.Debugf("inner_err: %+v", inner_err)
-	if inner_err != nil && BattleTagUnrated.Contains(inner_err) {
+	if inner_err != nil && BattleTagUnranked.Contains(inner_err) {
 		return -1, "", inner_err
 	}
 	if err != nil {

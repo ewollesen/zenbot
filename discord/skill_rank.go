@@ -147,8 +147,8 @@ func (sr *skillRankHandler) handleSkillRank(s Session,
 
 	rank, img_url, err := sr.overwatch.SkillRank(overwatch.PlatformPC, btag)
 	if err != nil {
-		if overwatch.BattleTagUnrated.Contains(err) {
-			reply(s, m, "Skill rank for %s: Unrated. "+
+		if overwatch.BattleTagUnranked.Contains(err) {
+			reply(s, m, "Skill rank for %s: Unranked. "+
 				"Perhaps the player has yet to complete his "+
 				"or her placement matches.", btag)
 			return nil

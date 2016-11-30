@@ -5,6 +5,8 @@ A discord bot with a queueing system, plus a few other goodies.
 This bot was designed to meet the requirements and desires of the Affinity
 Coaching Discord group.
 
+[![Build Status](https://travis-ci.org/ewollesen/zenbot.svg?branch=master)](https://travis-ci.org/ewollesen/zenbot)
+
 ## Testing
 
     go test github.com/ewollesen/zenbot/...

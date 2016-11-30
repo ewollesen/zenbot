@@ -35,11 +35,12 @@ var (
 )
 
 type owApi struct {
+	host     string
 	official overwatch.OfficialAPI
 }
 
-func New(official overwatch.OfficialAPI) *owApi {
-	return &owApi{official: official}
+func New(official overwatch.OfficialAPI, host string) *owApi {
+	return &owApi{host: host, official: official}
 }
 
 type stats struct {
@@ -148,7 +149,7 @@ func (l *owApi) escapeBattleTag(in string) (out string) {
 func (l *owApi) buildUrl(platform, battle_tag, path string) string {
 	overwatch.CheckPlatform(platform)
 
-	return fmt.Sprintf("%s/%s/%s?platform=%s", "https://owapi.net/api/v3/u",
+	return fmt.Sprintf("%s/api/v3/u/%s/%s?platform=%s", l.host,
 		l.escapeBattleTag(battle_tag), path, platform)
 }
 

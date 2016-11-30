@@ -22,7 +22,7 @@ import (
 
 	"github.com/ewollesen/discordgo"
 	memorycache "github.com/ewollesen/zenbot/cache/memory"
-	"github.com/ewollesen/zenbot/overwatch"
+	"github.com/ewollesen/zenbot/overwatch/global"
 	"github.com/ewollesen/zenbot/overwatch/mockoverwatch"
 )
 
@@ -31,7 +31,7 @@ func TestHandleTeams(t *testing.T) {
 
 	cmdv := append([]string{"teams"}, mockoverwatch.TestBattleTags...)
 	btc := NewBattleTagCache(memorycache.New())
-	srh := newSkillRankHandler(btc, overwatch.NewGlobal(mockoverwatch.NewRandom()))
+	srh := newSkillRankHandler(btc, global.New(mockoverwatch.NewRandom()))
 	s := test.mockSession()
 	for i, _ := range mockoverwatch.TestBattleTags {
 		test_user_id := fmt.Sprintf("test-user-%03d", 123+i)
@@ -50,7 +50,7 @@ func TestHandleTeamsReplaceMentions(t *testing.T) {
 	test := newDiscordTest(t)
 
 	btc := NewBattleTagCache(memorycache.New())
-	srh := newSkillRankHandler(btc, overwatch.NewGlobal(mockoverwatch.NewRandom()))
+	srh := newSkillRankHandler(btc, global.New(mockoverwatch.NewRandom()))
 	s := test.mockSession()
 	for i, _ := range mockoverwatch.TestBattleTags {
 		test_user_id := fmt.Sprintf("test-user-%03d", 123+i)
@@ -71,7 +71,7 @@ func TestHandleReplaceMentions(t *testing.T) {
 	test := newDiscordTest(t)
 
 	btc := NewBattleTagCache(memorycache.New())
-	srh := newSkillRankHandler(btc, overwatch.NewGlobal(mockoverwatch.NewRandom()))
+	srh := newSkillRankHandler(btc, global.New(mockoverwatch.NewRandom()))
 	btc.Set("1234", "example#1234")
 
 	test.AssertEqual(srh.replaceMentions(

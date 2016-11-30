@@ -96,9 +96,14 @@ func (ow *mockOverwatch) SkillRank(platform, region, btag string) (
 	case "us/foundus#1111":
 		return 4999, "", nil
 	case "us/foundeu#2222":
-		return -1, "", overwatch.BattleTagNotFound.New("")
+		return -1, "", overwatch.BattleTagNotFound.New(btag)
 	case "eu/foundus#1111":
-		return -1, "", overwatch.BattleTagNotFound.New("")
+		return -1, "", overwatch.BattleTagNotFound.New(btag)
+	case "us/notfound#1234", "eu/notfound#1234", "kr/notfound#1234",
+		"cn/notfound#1234", "global/notfound#1234":
+		return -1, "", overwatch.BattleTagNotFound.New(btag)
+	case "us/unranked#3333":
+		return -1, "", overwatch.BattleTagUnranked.New(btag)
 	default:
 		return -1, "", fmt.Errorf("invalid battle tag")
 	}

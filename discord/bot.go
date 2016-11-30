@@ -50,6 +50,11 @@ var (
 		"redis keyspace prefix")
 	whitelistedChannels = flag.String("discord.whitelisted_channels", "",
 		"Channel ids on which to listen for commands")
+
+	owApiHost = flag.String("discord.owapi-host", "https://owapi.net",
+		"protocol, host and port to query")
+	lootBoxHost = flag.String("discord.lootbox-host", "https://api.lootbox.eu",
+		"protocol, host, and port to query")
 )
 
 type bot struct {
@@ -94,7 +99,7 @@ func New(redis_client *redis.Client) *bot {
 
 	btq := newBattleTagQueue(q)
 	btc := NewBattleTagCache(c)
-	gow := owapi.New(blizzard.NewCaching(vbtc))
+	gow := owapi.New(blizzard.NewCaching(vbtc), *owApiHost)
 	cow := overwatch.NewCaching(gow, owc)
 	qh := newQueueHandler(btq, btc, cow)
 	b.RegisterCommand("dequeue", qh)

@@ -16,7 +16,6 @@ package lootbox
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -34,17 +33,15 @@ var (
 	logger = spacelog.GetLogger()
 
 	Error = errors.NewClass("lootbox")
-
-	addr = flag.String("lootbox.address", "https://api.lootbox.eu",
-		"protocol, host, and port to query")
 )
 
 type lootBox struct {
+	host     string
 	official overwatch.OfficialAPI
 }
 
-func New(official overwatch.OfficialAPI) *lootBox {
-	return &lootBox{official: official}
+func New(official overwatch.OfficialAPI, host string) *lootBox {
+	return &lootBox{host: host, official: official}
 }
 
 type profile struct {
@@ -54,8 +51,8 @@ type profile struct {
 			RankImg *string `json:"rank_img,omitempty"`
 		} `json:"competitive,omitempty"`
 	} `json:"data,omitempty"`
-	StatusCode int    `json:"statusCode,omitempty"`
-	Error      string `json:"error,omitempty"`
+	StatusCode *int    `json:"statusCode,omitempty"`
+	Error      *string `json:"error,omitempty"`
 }
 
 // curl -X GET --header 'Accept: application/json' 'https://api.lootbox.eu/pc/us/encoded-1148/profile'
@@ -108,12 +105,16 @@ func (l *lootBox) SkillRank(platform, region, battle_tag string) (
 		return -1, "", err
 	}
 
-	if profile.Error != "" {
-		return -1, "", Error.New(profile.Error)
+	if profile.Error != nil {
+		if profile.StatusCode != nil &&
+			*profile.StatusCode == http.StatusNotFound {
+			return -1, "", overwatch.BattleTagNotFound.New(battle_tag)
+		}
+		return -1, "", Error.New(*profile.Error)
 	}
 
-	if rankNotFound(profile) {
-		return -1, "", overwatch.BattleTagNotFound.New(battle_tag)
+	if unranked(profile) {
+		return -1, "", overwatch.BattleTagUnranked.New(battle_tag)
 	}
 
 	sr64, err := strconv.ParseInt(*profile.Data.Competitive.Rank, 10, 32)
@@ -144,8 +145,8 @@ func (l *lootBox) buildUrl(platform, region, battle_tag, path string) string {
 	overwatch.CheckPlatform(platform)
 	overwatch.CheckRegion(region)
 
-	return fmt.Sprintf("%s/%s/%s/%s/%s", *addr,
-		platform, region, l.escapeBattleTag(battle_tag), path)
+	return fmt.Sprintf("%s/%s/%s/%s/%s", l.host, platform, region,
+		l.escapeBattleTag(battle_tag), path)
 }
 
 func (l *lootBox) IsValidBattleTag(platform, region, battle_tag string) (
@@ -154,9 +155,8 @@ func (l *lootBox) IsValidBattleTag(platform, region, battle_tag string) (
 	return l.official.IsValidBattleTag(platform, region, battle_tag)
 }
 
-func rankNotFound(pr *profile) bool {
-	return pr.Data == nil ||
-		pr.Data.Competitive == nil ||
+func unranked(pr *profile) bool {
+	return pr.Data.Competitive == nil ||
 		pr.Data.Competitive.Rank == nil ||
 		*pr.Data.Competitive.Rank == ""
 }

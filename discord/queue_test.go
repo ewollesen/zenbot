@@ -22,6 +22,7 @@ import (
 
 	memorycache "github.com/ewollesen/zenbot/cache/memory"
 	"github.com/ewollesen/zenbot/overwatch"
+	"github.com/ewollesen/zenbot/overwatch/global"
 	"github.com/ewollesen/zenbot/overwatch/mockoverwatch"
 	"github.com/ewollesen/zenbot/queue"
 	memoryqueue "github.com/ewollesen/zenbot/queue/memory"
@@ -35,7 +36,7 @@ func TestHandleClear(t *testing.T) {
 	c := memorycache.New()
 	qh := newQueueHandler(newBattleTagQueue(memoryqueue.New()),
 		NewBattleTagCache(c),
-		overwatch.NewGlobal(mockoverwatch.NewRandom()))
+		global.New(mockoverwatch.NewRandom()))
 	s := test.mockSession()
 	m := test.testMessage("!queue clear")
 	test.AssertNil(qh.Handle(s, m, "!queue", "clear"))
@@ -363,7 +364,7 @@ type queueTest struct {
 func newQueueTest(t *testing.T) (*queueTest, *queueHandler) {
 	qh := newQueueHandler(newBattleTagQueue(memoryqueue.New()),
 		NewBattleTagCache(memorycache.New()),
-		overwatch.NewGlobal(mockoverwatch.NewRandom()))
+		global.New(mockoverwatch.NewRandom()))
 
 	return &queueTest{
 		discordTest: newDiscordTest(t),

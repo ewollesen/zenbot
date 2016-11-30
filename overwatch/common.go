@@ -15,7 +15,6 @@
 package overwatch
 
 import (
-	"github.com/ewollesen/zenbot/blizzard"
 	"github.com/spacemonkeygo/errors"
 	"github.com/spacemonkeygo/spacelog"
 )
@@ -84,32 +83,3 @@ func CheckRegion(region string) {
 }
 
 // TOOD: CheckBattleTag
-
-type GlobalOverwatch struct {
-	RegionalOverwatchAPI
-}
-
-func (o *GlobalOverwatch) SkillRank(platform, battle_tag string) (
-	sr int, img_url string, err error) {
-
-	if !blizzard.WellFormedBattleTag(battle_tag) {
-		return -1, "", BattleTagInvalid.New(battle_tag)
-	}
-
-	// TODO parallelize
-	for _, region := range Regions {
-		sr, img_url, err =
-			o.RegionalOverwatchAPI.SkillRank(platform, region, battle_tag)
-		if err != nil {
-			logger.Infoe(err)
-			continue
-		}
-		return sr, img_url, err
-	}
-
-	return -1, "", err
-}
-
-func NewGlobal(regional RegionalOverwatchAPI) *GlobalOverwatch {
-	return &GlobalOverwatch{regional}
-}

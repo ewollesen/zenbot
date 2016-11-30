@@ -104,12 +104,15 @@ func (l *lootBox) SkillRank(platform, region, battle_tag string) (
 		return overwatch.SkillRankError, err
 	}
 
-	if profile.Error != nil {
-		if profile.StatusCode != nil &&
-			*profile.StatusCode == http.StatusNotFound {
-			return overwatch.SkillRankError, overwatch.BattleTagNotFound.New(battle_tag)
+	if profile.StatusCode != nil {
+		if *profile.StatusCode == http.StatusNotFound {
+			return overwatch.SkillRankError,
+				overwatch.BattleTagNotFound.New(battle_tag)
 		}
-		return overwatch.SkillRankError, Error.New(*profile.Error)
+		if profile.Error != nil {
+			return overwatch.SkillRankError,
+				Error.New(*profile.Error)
+		}
 	}
 
 	if unranked(profile) {
@@ -118,7 +121,7 @@ func (l *lootBox) SkillRank(platform, region, battle_tag string) (
 
 	sr64, err := strconv.ParseInt(*profile.Data.Competitive.Rank, 10, 32)
 	if err != nil {
-		return overwatch.SkillRankError, err
+		return overwatch.SkillRankError, overwatch.BattleTagUnranked.Wrap(err)
 	}
 
 	return int(sr64), nil

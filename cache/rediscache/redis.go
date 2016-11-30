@@ -131,5 +131,5 @@ func (c *rediscache) Set(key string, value []byte) error {
 }
 
 func (c *rediscache) buildKey(key string) string {
-	return c.key + "-" + key
+	return c.key + "." + key
 }

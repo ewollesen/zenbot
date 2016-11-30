@@ -29,6 +29,8 @@ import (
 var _ overwatch.OverwatchAPI = (*owApi)(nil)
 
 var (
+	owApiRegions = []string{overwatch.RegionUS, overwatch.RegionEU, overwatch.RegionKR}
+
 	logger = spacelog.GetLogger()
 )
 
@@ -50,9 +52,9 @@ type regionData struct {
 	Stats struct {
 		Competitive *struct {
 			OverallStats *struct {
-				CompRank *int `json:"comprank"`
-			} `json:"overall_stats"`
-		} `json:"competitive"`
+				CompRank *int `json:"comprank,omitempty"`
+			} `json:"overall_stats,omitempty"`
+		} `json:"competitive,omitempty"`
 	} `json:"stats"`
 }
 
@@ -75,18 +77,25 @@ func (l *owApi) SkillRank(platform, battle_tag string) (
 		return -1, "", err
 	}
 
-	for _, region := range overwatch.Regions {
-		sr = findRank(stats, region)
+	var found bool
+	for _, region := range owApiRegions {
+		var f bool
+		sr, f = findRank(stats, region)
+		found = found || f
 		if sr > 0 {
 			logger.Infof("found %s's SR in region %s", battle_tag, region)
 			return sr, "", nil
 		}
 	}
 
+	if found {
+		return -1, "", overwatch.BattleTagUnrated.New(battle_tag)
+	}
+
 	return -1, "", overwatch.BattleTagNotFound.New(battle_tag)
 }
 
-func findRank(stats *stats, region string) int {
+func findRank(stats *stats, region string) (int, bool) {
 	var rd *regionData
 	switch region {
 	case overwatch.RegionEU:
@@ -98,12 +107,20 @@ func findRank(stats *stats, region string) int {
 	default:
 		rd = stats.US
 	}
+
+	if rd == nil {
+		logger.Debugf("no data in %s", region)
+		return -1, false
+	}
+
 	if rd.Stats.Competitive == nil ||
 		rd.Stats.Competitive.OverallStats == nil ||
 		rd.Stats.Competitive.OverallStats.CompRank == nil {
-		return -1
+		logger.Debugf("unrated in %s", region)
+		return -1, true
 	}
-	return *rd.Stats.Competitive.OverallStats.CompRank
+
+	return *rd.Stats.Competitive.OverallStats.CompRank, true
 }
 
 func (l *owApi) get(path string, platform, battle_tag string) (

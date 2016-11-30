@@ -27,6 +27,8 @@ var (
 		errors.NoCaptureStack())
 	BattleTagNotFound = Error.NewClass("no BattleTag found",
 		errors.NoCaptureStack())
+	BattleTagUnrated = Error.NewClass("no skill rating found",
+		errors.NoCaptureStack())
 )
 
 const (

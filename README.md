@@ -7,6 +7,10 @@ Coaching Discord group.
 
 [![Build Status](https://travis-ci.org/ewollesen/zenbot.svg?branch=master)](https://travis-ci.org/ewollesen/zenbot)
 
+## Installation
+
+    go get github.com/ewollesen/zenbot/bin/zenbot
+
 ## Testing
 
     go test github.com/ewollesen/zenbot/...
@@ -29,10 +33,12 @@ Before the bot can join your Guild (Server), it needs a bot user token and a cli
 
 ### Starting the Bot
 
-    $ ./zenbot -discord.client_id <your app's client id> \
-               -discord.token "Bot <your app bot user's token>"
+    $ zenbot -discord.client_id <your app's client id> \
+               -discord.token "Bot <your app bot user's token>" \
+               -discord.hostname "localhost" \
+               -discord.protocol "http"
 
-Notice that we've added "Bot" before the token specified above.
+Notice that we've added "Bot" before the token specified above. When you're ready to create a config file, see the [template](#config-file-template) below.
 
 ### Inviting the Bot to Join Your Guild
 
@@ -41,7 +47,7 @@ Notice that we've added "Bot" before the token specified above.
   1. Select the Discord Guild on which you want the bot to run.
   1. Dance!
 
-Zenbot should now be visible to your guild. Further configuration options can be found by running the bot with the `-help` flag.
+Zenbot should now be visible to your guild. Further configuration options can be found by running the bot with the `--help-all` flag.
 
 ### More on OAuth Redirect URLs
 
@@ -49,9 +55,11 @@ Discord bots are authorized to join a Guild via [OAuth](https://discordapp.com/d
 
 When Zenbot starts up, it creates a small HTTP server, by default on port 8080. Visiting this server's `/discord` endpoint, eg `http://localhost:8080/discord` will present you with an OAuth link that, when followed, will invite Zenbot to join a Guild for which you have access.
 
-After you have authenticated the bot, Discord will try to redirect you back to the bot. So it's up to you to add a correct OAuth redirection URL (in step 1 under running) that is connected to Zenbot's HTTP server's Discord OAuth redirect endpoint, by default this is http://<your server's name/ip>:8080/discord/oauth/redirect. You can use the `discord.hostname` and `discord.protocol` options to modify the generated URLs to point to reverse proxy if you're using one.
+After you have authenticated the bot, Discord will try to redirect you back to the bot. So it's up to you to add a correct OAuth redirection URL (in step 1 under running) that is connected to Zenbot's HTTP server's Discord OAuth redirect endpoint, by default this is http://&lt;your server's name or ip&gt;:8080/discord/oauth/redirect. You can use the `discord.hostname` and `discord.protocol` options to modify the generated URLs to point to reverse proxy if you're using one.
 
+<a name="config-file-template">
 ## Configuration File Template
+</a>
 
 Here's a basic configuration file to get you started. Defaults are commented out:
 
@@ -87,11 +95,26 @@ Here's a basic configuration file to get you started. Defaults are commented out
     # https://support.discordapp.com/hc/en-us/articles/206346498-Where-can-I-find-my-server-ID-
     # whitelisted_channels =
 
-    [httpapi] address = :8080
+    [httpapi]
+    address = :8080
 
     [log]
     level = info
 
 You can use a configuration file by specifying the `-flagfile` option to zenbot, eg:
 
-    $ ./zenbot -flagfile ~/.zenbot/config
+    $ zenbot -flagfile ~/.zenbot/config
+
+## License
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.

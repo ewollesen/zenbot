@@ -80,25 +80,18 @@ func (l *owApi) SkillRank(platform, battle_tag string) (
 		return overwatch.SkillRankError, err
 	}
 
-	var found bool
 	for _, region := range owApiRegions {
-		var f bool
-		sr, f = findRank(stats, region)
-		found = found || f
+		sr = findRank(stats, region)
 		if sr > 0 {
 			logger.Infof("found %s's SR in region %s", battle_tag, region)
 			return sr, nil
 		}
 	}
 
-	if found {
-		return overwatch.SkillRankError, overwatch.BattleTagUnranked.New(battle_tag)
-	}
-
-	return overwatch.SkillRankError, overwatch.BattleTagNotFound.New(battle_tag)
+	return overwatch.SkillRankError, overwatch.BattleTagUnranked.New(battle_tag)
 }
 
-func findRank(stats *stats, region string) (int, bool) {
+func findRank(stats *stats, region string) int {
 	var rd *regionData
 	switch region {
 	case overwatch.RegionEU:
@@ -116,18 +109,18 @@ func findRank(stats *stats, region string) (int, bool) {
 	}
 
 	if rd == nil {
-		logger.Debugf("no data in %s", region)
-		return overwatch.SkillRankError, false
+		logger.Debugf("no data in %s region", region)
+		return overwatch.SkillRankError
 	}
 
 	if rd.Stats.Competitive == nil ||
 		rd.Stats.Competitive.OverallStats == nil ||
 		rd.Stats.Competitive.OverallStats.CompRank == nil {
 		logger.Debugf("unranked in %s", region)
-		return overwatch.SkillRankError, true
+		return overwatch.SkillRankError
 	}
 
-	return *rd.Stats.Competitive.OverallStats.CompRank, true
+	return *rd.Stats.Competitive.OverallStats.CompRank
 }
 
 func (l *owApi) get(path string, platform, battle_tag string) (
@@ -138,6 +131,15 @@ func (l *owApi) get(path string, platform, battle_tag string) (
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, overwatch.BattleTagNotFound.New(battle_tag)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		logger.Warnf("received status code %d, continuing anyway",
+			resp.StatusCode)
+	}
 
 	return ioutil.ReadAll(resp.Body)
 }

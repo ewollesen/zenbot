@@ -43,20 +43,21 @@ func (c *cachingOverwatch) SkillRank(platform, battle_tag string) (
 	sr int, err error) {
 
 	cache_hit := true
-	var inner_err error
 	val_bytes, err := c.cache.Fetch(
-		c.key(platform, battle_tag, "skillRank"),
+		c.key("skillRank", platform, battle_tag),
 		func() []byte {
 			cache_hit = false
 			logger.Debugf("skill rank cache miss for %q", battle_tag)
 			r, err := c.OverwatchAPI.SkillRank(platform, battle_tag)
 			if err != nil {
+				// Is it desirable to cache unranked battle
+				// tags? To reduce traffic if nothing else? If
+				// so, this should be re-vamped. Inspecting the
+				// error was super ugly due to the caching.
 				logger.Errore(err)
-				if BattleTagUnranked.Contains(err) {
-					inner_err = err
-				}
 				return nil
 			}
+
 			r_bytes, err := json.Marshal(&skillRankBlob{Rank: r})
 			if err != nil {
 				logger.Errore(err)
@@ -65,10 +66,6 @@ func (c *cachingOverwatch) SkillRank(platform, battle_tag string) (
 
 			return r_bytes
 		})
-	logger.Debugf("inner_err: %+v", inner_err)
-	if inner_err != nil && BattleTagUnranked.Contains(inner_err) {
-		return SkillRankError, inner_err
-	}
 	if err != nil {
 		return SkillRankError, err
 	}

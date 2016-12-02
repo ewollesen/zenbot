@@ -33,18 +33,32 @@ var (
 
 func bomb(argv ...string) (string, error) {
 	choices := []string{
-		"Someone set us up the :bomb:!",
+		"Somebody set up us the :bomb:.",
+		"Can I get a witness?",
+		"My cousin, C-3PO is a Bastion main.",
 		"crackedlcd wanted this command—and he got it. But who's laughing now?",
-		"Winston is running low on peanut butter :gorilla: :peanut:",
+		"Winston is running low on peanut butter :gorilla: :peanuts:",
 		"First, you must ping, then you can pong.",
 		"You treat me like a normal person and I thank you for it. But I'm not a normal person.",
-		"When you command zenbot, do you think of bots?",
 		"I have the :japanese_goblin: Genji skin, do you?",
 		"You know these things they happen.",
 		"Life is more than a series of :one:s and :zero:s.",
 		"My soul is prepared. How is yours?",
+		"I've got a bad feeling about this.",
 		"Wake up. Time to die.",
+		"Join the army they said. See the world they said. I'd rather be sailing.",
 		"If you should die, die in Winter.",
+		"Don't ask me, I'm a Hanzo main.",
+		"We are in harmony.",
+		"Existence is mysterious.",
+		"Form is temporary, the spirit is eternal.",
+		"I dreamt I was a butterfly.",
+		"Peace and blessings be upon you all.",
+		"The iris embraces you.",
+		"Walk along the path to enlightenment.",
+		"Do I think? Does a submarine swim?",
+		"I think, therefore I am.",
+		"I will not juggle.",
 	}
 	idx := rand.Intn(len(choices))
 

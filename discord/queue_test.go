@@ -156,6 +156,30 @@ func TestHandleEnqueueUnlimited(t *testing.T) {
 		"Enqueued .* in the scrimmages queue in position 1.")
 }
 
+// player is in EU, NOT in US, but should still be allowed to enqueue.
+func TestHandleEnqueueUnlimitedEUPlayer(t *testing.T) {
+	test, qh := newQueueTest(t)
+	s := test.mockSession()
+	m := test.testMessage("!enqueue")
+	test.overwatch.SetInvalidBattleTagFull(overwatch.PlatformPC,
+		overwatch.RegionUS, testBattleTag)
+	test.AssertNil(qh.handleEnqueueUnlimited(s, m))
+	test.AssertContainsRe(s.sends,
+		"Enqueued .* in the scrimmages queue in position 1.")
+}
+
+func TestHandleEnqueueUnlimitedInvalidBattleTag(t *testing.T) {
+	test, qh := newQueueTest(t)
+	s := test.mockSession()
+	m := test.testMessage("!enqueue")
+	for _, region := range overwatch.Regions {
+		test.overwatch.SetInvalidBattleTagFull(overwatch.PlatformPC,
+			region, testBattleTag)
+	}
+	test.AssertErrorContainedBy(qh.handleEnqueueUnlimited(s, m),
+		overwatch.BattleTagInvalid)
+}
+
 func TestHandlesEnqueueUnlimitedAlreadyEnqueuedPosition(t *testing.T) {
 	test, qh := newQueueTest(t)
 	s := test.mockSession()
@@ -358,16 +382,18 @@ func TestDoubleEnqueue(t *testing.T) {
 
 type queueTest struct {
 	*discordTest
-	handler *queueHandler
+	handler   *queueHandler
+	overwatch mockoverwatch.MockOverwatch
 }
 
 func newQueueTest(t *testing.T) (*queueTest, *queueHandler) {
+	ow := mockoverwatch.NewRandom()
 	qh := newQueueHandler(newBattleTagQueue(memoryqueue.New()),
-		NewBattleTagCache(memorycache.New()),
-		global.New(mockoverwatch.NewRandom()))
+		NewBattleTagCache(memorycache.New()), global.New(ow))
 
 	return &queueTest{
 		discordTest: newDiscordTest(t),
+		overwatch:   ow,
 		handler:     qh,
 	}, qh
 }

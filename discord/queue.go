@@ -226,6 +226,25 @@ func (h *queueHandler) handleDequeue(s Session,
 	return nil
 }
 
+func (h *queueHandler) validateBattleTag(battle_tag string) (
+	valid bool, err error) {
+
+	for _, region := range overwatch.Regions {
+		valid, err = h.overwatch.IsValidBattleTag("pc", region, battle_tag)
+		if err != nil {
+			logger.Errore(err)
+			continue
+		}
+		if valid {
+			return true, nil
+		}
+	}
+	if err != nil {
+		return false, err
+	}
+	return valid, nil
+}
+
 func (h *queueHandler) handleEnqueueUnlimited(s Session,
 	m *discordgo.MessageCreate) (err error) {
 
@@ -253,7 +272,7 @@ func (h *queueHandler) handleEnqueueUnlimited(s Session,
 		}
 	}
 
-	valid, err := h.overwatch.IsValidBattleTag("pc", "us", btag)
+	valid, err := h.validateBattleTag(btag)
 	if err != nil {
 		reply(s, m, "Error validating BattleTag %q. "+
 			"Please try again.", btag)
@@ -333,10 +352,9 @@ func (h *queueHandler) handleAddUnsafe(s Session,
 
 	added_btags := []string{}
 	for _, btag := range btags {
-		valid, err := h.overwatch.IsValidBattleTag("pc", "us", btag)
+		valid, err := h.validateBattleTag(btag)
 		if err != nil {
-			reply(s, m, "Error validating BattleTag %q.")
-			logger.Errore(err)
+			reply(s, m, "Error validating BattleTag %q.", btag)
 			continue
 		}
 		if !valid {
@@ -364,8 +382,11 @@ func (h *queueHandler) handleAddUnsafe(s Session,
 		h.lookupSkillRank(btag)
 	}
 
-	reply(s, m, "Added %s to the scrimmages queue.",
-		util.ToList(added_btags))
+	if len(added_btags) > 0 {
+		reply(s, m, "Added %s to the scrimmages queue.",
+			util.ToList(added_btags))
+	}
+
 	return nil
 }
 

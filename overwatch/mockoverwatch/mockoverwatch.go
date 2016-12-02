@@ -17,12 +17,16 @@ package mockoverwatch
 import (
 	"fmt"
 	"math/rand"
+	"strings"
 	"sync"
 
 	"github.com/ewollesen/zenbot/overwatch"
+	"github.com/spacemonkeygo/spacelog"
 )
 
 var (
+	logger = spacelog.GetLogger()
+
 	TestBattleTags = []string{
 		"us/testuser1#1111",
 		"us/testuser2#2222",
@@ -109,17 +113,11 @@ func (ow *mockOverwatch) SkillRank(platform, region, btag string) (
 	}
 }
 
-func (ow *mockOverwatch) SkillRankGlobal(platform, btag string) (
-	rank int, err error) {
-
-	return ow.SkillRank(platform, "us", btag)
-}
-
 func (ow *mockOverwatch) IsValidBattleTag(platform, region, btag string) (
 	bool, error) {
 
 	for _, candidate := range ow.bad_btags {
-		if candidate == btag {
+		if candidate == strings.Join([]string{platform, region, btag}, "/") {
 			return false, nil
 		}
 	}
@@ -128,7 +126,12 @@ func (ow *mockOverwatch) IsValidBattleTag(platform, region, btag string) (
 }
 
 func (ow *mockOverwatch) SetInvalidBattleTag(btag string) {
-	ow.bad_btags = append(ow.bad_btags, btag)
+	ow.SetInvalidBattleTagFull(overwatch.PlatformPC, overwatch.RegionUS, btag)
+}
+
+func (ow *mockOverwatch) SetInvalidBattleTagFull(platform, region, btag string) {
+	ow.bad_btags = append(ow.bad_btags,
+		strings.Join([]string{platform, region, btag}, "/"))
 }
 
 func New() *mockOverwatch {
@@ -160,4 +163,9 @@ func NewRandom() *mockRandomOverwatch {
 		mockOverwatch: New(),
 		ranks:         make(map[string]int),
 	}
+}
+
+type MockOverwatch interface {
+	overwatch.RegionalOverwatchAPI
+	SetInvalidBattleTagFull(platform, region, btag string)
 }
